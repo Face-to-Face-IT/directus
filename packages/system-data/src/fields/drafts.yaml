@@ -1,0 +1,34 @@
+table: directus_drafts
+
+fields:
+  - field: id
+    special:
+      - uuid
+    readonly: true
+    hidden: true
+
+  - field: name
+
+  - field: collection
+
+  - field: data
+    special:
+      - cast-json
+
+  - field: date_created
+    special:
+      - date-created
+      - cast-timestamp
+
+  - field: date_updated
+    special:
+      - date-updated
+      - cast-timestamp
+
+  - field: user_created
+    special:
+      - user-created
+
+  - field: user_updated
+    special:
+      - user-updated

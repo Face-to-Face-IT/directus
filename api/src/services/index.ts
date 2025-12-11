@@ -5,6 +5,7 @@ export * from './authentication.js';
 export * from './collections.js';
 export * from './comments.js';
 export * from './dashboards.js';
+export * from './drafts.js';
 export * from './extensions.js';
 export * from './fields.js';
 export * from './files.js';

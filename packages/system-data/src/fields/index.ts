@@ -1,6 +1,7 @@
 import defaults from './_defaults.yaml';
 
 import accessFields from './access.yaml';
+import draftFields from './drafts.yaml';
 import activityFields from './activity.yaml';
 import collectionFields from './collections.yaml';
 import commentsFields from './comments.yaml';
@@ -48,6 +49,7 @@ processFields(activityFields);
 processFields(collectionFields);
 processFields(commentsFields);
 processFields(dashboardFields);
+processFields(draftFields);
 processFields(extensionFields);
 processFields(fieldFields);
 processFields(fileFields);

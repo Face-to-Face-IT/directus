@@ -90,6 +90,11 @@ data:
   - collection: directus_dashboards
     note: $t:directus_collection.directus_dashboards
 
+  - collection: directus_drafts
+    icon: edit_note
+    note: $t:directus_collection.directus_drafts
+    display_template: '{{ name }}'
+
   - collection: directus_panels
     note: $t:directus_collection.directus_panels
 

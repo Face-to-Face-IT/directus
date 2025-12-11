@@ -535,6 +535,23 @@ post_comment_updated: Comment updated
 item_create_success: Item Created | Items Created
 item_update_success: Item Updated | Items Updated
 item_delete_success: Item Deleted | Items Deleted
+draft_saved: Draft Saved
+draft_deleted: Draft Deleted
+draft_published: Draft Published
+save_as_draft: Save as Draft
+update_draft: Update Draft
+delete_draft: Delete Draft
+my_drafts: My Drafts
+load_draft: Load Draft
+publish_draft: Publish Draft
+validate_draft: Validate Draft
+draft_name: Draft Name
+draft_name_placeholder: Untitled Draft
+no_drafts: No drafts found
+draft_validation_passed: Validation passed - ready to publish
+draft_validation_failed: Validation failed
+continue_editing_draft: Continue Editing Draft
+discard_draft: Discard Draft
 this_collection: This Collection
 related_collection: Related Collection
 related_collections: Related Collections
@@ -1308,6 +1325,7 @@ directus_collection:
   directus_translations: Custom translations
   directus_versions: Content Versions for items
   directus_extensions: Configuration of extensions
+  directus_drafts: Draft items that haven't been saved yet
 fields:
   directus_activity:
     item: Item Primary Key

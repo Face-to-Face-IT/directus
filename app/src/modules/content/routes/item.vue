@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAiStore } from '@/ai/stores/use-ai';
+import { useDraftItem } from '@/composables/use-draft-item';
 import { useEditsGuard } from '@/composables/use-edits-guard';
 import { useFlows } from '@/composables/use-flows';
 import { useItem } from '@/composables/use-item';
@@ -14,6 +15,7 @@ import { renderStringTemplate } from '@/utils/render-string-template';
 import { translateShortcut } from '@/utils/translate-shortcut';
 import PrivateView from '@/views/private';
 import CommentsSidebarDetail from '@/views/private/components/comments-sidebar-detail.vue';
+import DraftsSidebarDetail from '@/views/private/components/drafts-sidebar-detail.vue';
 import FlowDialogs from '@/views/private/components/flow-dialogs.vue';
 import FlowSidebarDetail from '@/views/private/components/flow-sidebar-detail.vue';
 import LivePreview from '@/views/private/components/live-preview.vue';
@@ -46,6 +48,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const { t, te } = useI18n();
 
+const route = useRoute();
 const router = useRouter();
 const { collectionRoute } = useCollectionRoute();
 
@@ -98,6 +101,39 @@ const {
 	validationErrors: itemValidationErrors,
 } = useItem(collection, primaryKey, query);
 
+// Draft functionality for new items
+const {
+	currentDraft,
+	loadingDraft: draftLoading,
+	savingDraft: draftSaving,
+	hasDraft,
+	hasDraftChanges,
+	saveDraft,
+	publishDraft: publishDraftFn,
+	deleteDraft: deleteDraftFn,
+	discardDraft,
+} = useDraftItem({
+	collection,
+	isNew,
+	edits,
+});
+
+// For drafts, we only have unsaved changes if the draft data changed from what was loaded
+// For regular items, use the standard hasEdits
+// Don't show unsaved changes while draft is loading or if we're expecting a draft that hasn't loaded yet
+const hasUnsavedChanges = computed(() => {
+	// Don't trigger while draft is loading
+	if (draftLoading.value) return false;
+	// If URL has draft param but draft hasn't loaded yet, don't trigger
+	if (hasDraft.value && !currentDraft.value) return false;
+	// If we have a loaded draft, only check if draft content changed
+	if (currentDraft.value) {
+		return hasDraftChanges.value;
+	}
+	// For regular new items without draft, use standard hasEdits
+	return hasEdits.value;
+});
+
 const aiStore = useAiStore();
 
 aiStore.onSystemToolResult((tool, input) => {
@@ -118,9 +154,14 @@ const {
 
 const { templateData } = useTemplateData(collectionInfo, primaryKey);
 
-const { confirmLeave, leaveTo } = useEditsGuard(hasEdits, { compareQuery: ['version'] });
+// Use hasUnsavedChanges which is draft-aware (won't prompt when switching drafts if saved)
+const { confirmLeave, leaveTo } = useEditsGuard(hasUnsavedChanges, { compareQuery: ['version'] });
 const confirmDelete = ref(false);
 const confirmArchive = ref(false);
+
+// Dialog for naming drafts
+const showDraftNameDialog = ref(false);
+const draftName = ref('');
 
 const title = computed(() => {
 	if (te(`collection_names_singular.${props.collection}`)) {
@@ -467,6 +508,41 @@ async function saveAndQuit() {
 	}
 }
 
+function openSaveDraftDialog() {
+	if (!isNew.value) return;
+	if (!hasEdits.value) return;
+
+	// Pre-fill with existing draft name if updating
+	draftName.value = currentDraft.value?.name || '';
+	showDraftNameDialog.value = true;
+}
+
+async function saveAsDraftAndStay() {
+	showDraftNameDialog.value = false;
+
+	try {
+		// saveDraft already handles updating the URL query param
+		await saveDraft(draftName.value || undefined);
+		draftName.value = '';
+	} catch {
+		// saveDraft handles error display
+	}
+}
+
+async function publishDraftAndNavigate() {
+	if (!currentDraft.value) return;
+
+	try {
+		const result = await publishDraftFn();
+
+		if (result?.key) {
+			router.replace(getItemRoute(props.collection, result.key));
+		}
+	} catch {
+		// publishDraft handles error display
+	}
+}
+
 async function deleteAndQuit() {
 	if (deleting.value) return;
 
@@ -499,14 +575,33 @@ async function toggleArchive() {
 
 function discardAndLeave() {
 	if (!leaveTo.value) return;
-	edits.value = {};
+
+	// If working with a draft, clear the draft state too
+	if (currentDraft.value) {
+		discardDraft();
+	} else {
+		edits.value = {};
+	}
+
 	confirmLeave.value = false;
 	router.push(leaveTo.value);
 }
 
 function discardAndStay() {
-	edits.value = {};
+	// If working with a draft, clear the draft state too
+	if (currentDraft.value) {
+		discardDraft();
+	} else {
+		edits.value = {};
+	}
+
 	confirmLeave.value = false;
+}
+
+function onLoadDraft() {
+	// Clear edits before navigating to a draft to prevent the unsaved changes dialog
+	// The draft sidebar handles the actual navigation after emitting this event
+	edits.value = {};
 }
 
 function revert(values: Record<string, any>) {
@@ -683,8 +778,74 @@ function useCollectionRoute() {
 				</v-card>
 			</v-dialog>
 
+			<!-- Draft save button for new items -->
+			<!-- Draft save button - only shows for new items without a draft loaded -->
+			<v-menu v-if="isNew && !currentDraft && collectionInfo.meta?.singleton !== true" show-arrow>
+				<template #activator="{ toggle }">
+					<v-button
+						v-tooltip.bottom="$t('save_as_draft')"
+						rounded
+						icon
+						secondary
+						:disabled="!hasEdits"
+						:loading="draftLoading || draftSaving"
+						small
+						@click="toggle"
+					>
+						<v-icon name="save" outline small />
+					</v-button>
+				</template>
+
+				<v-list>
+					<v-list-item clickable :disabled="!hasEdits" @click="openSaveDraftDialog">
+						<v-list-item-icon><v-icon name="save" /></v-list-item-icon>
+						<v-list-item-content>{{ $t('save_as_draft') }}</v-list-item-content>
+					</v-list-item>
+				</v-list>
+			</v-menu>
+
+			<!-- When editing a draft, the main save button saves the draft, not the item -->
 			<v-button
-				v-if="currentVersion === null"
+				v-if="currentVersion === null && currentDraft"
+				rounded
+				icon
+				:tooltip="$t('save_as_draft')"
+				:loading="draftSaving"
+				:disabled="!hasDraftChanges"
+				small
+				@click="openSaveDraftDialog"
+			>
+				<v-icon name="save" small />
+
+				<template #append-outer>
+					<v-menu v-if="collectionInfo.meta && collectionInfo.meta.singleton !== true" show-arrow>
+						<template #activator="{ toggle }">
+							<v-icon class="draft-more-options" name="more_vert" clickable @click="toggle" />
+						</template>
+
+						<v-list>
+							<v-list-item clickable :disabled="!hasDraftChanges" @click="openSaveDraftDialog">
+								<v-list-item-icon><v-icon name="save" /></v-list-item-icon>
+								<v-list-item-content>{{ $t('save_as_draft') }}</v-list-item-content>
+							</v-list-item>
+							<v-list-item clickable @click="publishDraftAndNavigate">
+								<v-list-item-icon><v-icon name="publish" /></v-list-item-icon>
+								<v-list-item-content>{{ $t('publish_draft') }}</v-list-item-content>
+							</v-list-item>
+							<v-list-item clickable @click="deleteDraftFn">
+								<v-list-item-icon><v-icon name="delete" /></v-list-item-icon>
+								<v-list-item-content>{{ $t('delete_draft') }}</v-list-item-content>
+							</v-list-item>
+							<v-list-item clickable @click="discardDraft">
+								<v-list-item-icon><v-icon name="undo" /></v-list-item-icon>
+								<v-list-item-content>{{ $t('discard_draft') }}</v-list-item-content>
+							</v-list-item>
+						</v-list>
+					</v-menu>
+				</template>
+			</v-button>
+			<v-button
+				v-else-if="currentVersion === null"
 				rounded
 				icon
 				:tooltip="saveAllowed ? $t('save') : $t('not_allowed')"
@@ -808,7 +969,36 @@ function useCollectionRoute() {
 			</v-card>
 		</v-dialog>
 
+		<v-dialog v-model="showDraftNameDialog" @esc="showDraftNameDialog = false">
+			<v-card>
+				<v-card-title>{{ currentDraft ? $t('update_draft') : $t('save_as_draft') }}</v-card-title>
+				<v-card-text>
+					<v-input
+						v-model="draftName"
+						:placeholder="$t('draft_name_placeholder')"
+						autofocus
+						@keyup.enter="saveAsDraftAndStay"
+					/>
+				</v-card-text>
+				<v-card-actions>
+					<v-button secondary @click="showDraftNameDialog = false">
+						{{ $t('cancel') }}
+					</v-button>
+					<v-button :loading="draftSaving" @click="saveAsDraftAndStay">
+						{{ $t('save') }}
+					</v-button>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
+
 		<template #sidebar>
+			<!-- Drafts sidebar for new items -->
+			<drafts-sidebar-detail
+				v-if="isNew && collectionInfo.meta?.singleton !== true"
+				:collection="collection"
+				:current-draft-id="currentDraft?.id"
+				@load-draft="onLoadDraft"
+			/>
 			<template v-if="isNew === false && actualPrimaryKey">
 				<revisions-sidebar-detail
 					v-if="revisionsAllowed && accountabilityScope === 'all'"
@@ -871,7 +1061,8 @@ function useCollectionRoute() {
 	gap: 0.25rem;
 }
 
-.version-more-options.v-icon {
+.version-more-options.v-icon,
+.draft-more-options.v-icon {
 	--focus-ring-offset: var(--focus-ring-offset-invert);
 
 	color: var(--theme--foreground-subdued);
