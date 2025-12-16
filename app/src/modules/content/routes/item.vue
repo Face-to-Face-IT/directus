@@ -55,6 +55,7 @@ import RevisionsSidebarDetail from '@/views/private/components/revisions-sidebar
 import SaveOptions from '@/views/private/components/save-options.vue';
 import SharesSidebarDetail from '@/views/private/components/shares-sidebar-detail.vue';
 import PrivateViewResizeHandle from '@/views/private/private-view/components/private-view-resize-handle.vue';
+import { resolveUrlPrefillData } from '../composables/use-url-prefill';
 
 interface Props {
 	collection: string;
@@ -70,6 +71,7 @@ const props = withDefaults(defineProps<Props>(), {
 const { t, te } = useI18n();
 
 const router = useRouter();
+const route = useRoute();
 const { collectionRoute, backRoute } = useItemNavigation();
 
 const userStore = useUserStore();
@@ -121,6 +123,24 @@ const {
 	getItem,
 	validationErrors: itemValidationErrors,
 } = useItem(collection, primaryKey, query);
+
+// Pre-populate edits from URL query parameters when creating a new item
+// e.g., /admin/content/articles/+?status=draft&category=news
+// For relational fields, use field.lookupField=value syntax:
+// e.g., /admin/content/case/+?program.abbreviation=ABC
+watch(
+	[isNew, () => route.query],
+	async ([newIsNew, newQuery]) => {
+		if (newIsNew && newQuery) {
+			const prefillData = await resolveUrlPrefillData(newQuery, collection.value, edits.value);
+
+			if (Object.keys(prefillData).length > 0) {
+				edits.value = { ...prefillData, ...edits.value };
+			}
+		}
+	},
+	{ immediate: true },
+);
 
 const toolsStore = useAiToolsStore();
 
@@ -620,8 +640,6 @@ const shouldShowVersioning = computed(
 );
 
 function useItemNavigation() {
-	const route = useRoute();
-
 	const collectionRoute = computed(() => {
 		const collectionPath = getCollectionRoute(props.collection);
 		if (route.query.bookmark) return `${collectionPath}?bookmark=${route.query.bookmark}`;
