@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { Filter } from '@directus/types';
-import { deepMap, getFieldsFromTemplate } from '@directus/utils';
+import { getFieldsFromTemplate } from '@directus/utils';
 import { get } from 'lodash';
-import { render } from 'micromustache';
 import { computed, inject, ref, toRefs } from 'vue';
 import { RouterLink } from 'vue-router';
 import VIcon from '@/components/v-icon/v-icon.vue';
@@ -53,18 +53,18 @@ const emit = defineEmits(['input']);
 
 const values = inject('values', ref<Record<string, any>>({}));
 
+// Get parent form values from the global context stack
+// This allows filters like: { "field": { "_eq": "$FORM.parentField" } }
+const parentFormValues = useParentFormContext();
+
 const collectionsStore = useCollectionsStore();
 
 const customFilter = computed(() => {
-	return parseFilter(
-		deepMap(props.filter, (val: any) => {
-			if (val && typeof val === 'string') {
-				return render(val, values.value);
-			}
-
-			return val;
-		}),
-	);
+	// Parse filter with $FORM context for parent form values
+	// Syntax: $FORM.fieldName (e.g., $FORM.program)
+	return parseFilter(props.filter, {
+		$FORM: parentFormValues.value,
+	});
 });
 
 const { collection, field } = toRefs(props);
