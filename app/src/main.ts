@@ -13,13 +13,15 @@ import { registerDirectives } from './directives/register';
 import { loadExtensions, registerExtensions } from './extensions';
 import { i18n } from './lang/';
 import { router } from './router';
-import { initTelemetry } from './telemetry';
+import { initTelemetry, initWebVitals, initAppMetrics } from './telemetry';
 import './styles/main.scss';
 import '@directus/vue-split-panel/index.css';
 import { registerViews } from './views/register';
 import { getVueComponentName } from '@/utils/get-vue-component-name';
 
 initTelemetry();
+initWebVitals();
+initAppMetrics();
 init();
 
 async function init() {

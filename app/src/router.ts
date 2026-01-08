@@ -15,6 +15,7 @@ import TFASetup from '@/routes/tfa-setup.vue';
 import { useServerStore } from '@/stores/server';
 import { useUserStore } from '@/stores/user';
 import { getRootPath } from '@/utils/get-root-path';
+import { recordNavigation } from '@/telemetry';
 
 export const defaultRoutes: RouteRecordRaw[] = [
 	{
@@ -207,8 +208,11 @@ export const onBeforeEach: NavigationGuard = async (to) => {
 
 let trackTimeout: number | null = null;
 
-export const onAfterEach: NavigationHookAfter = (to) => {
+export const onAfterEach: NavigationHookAfter = (to, from) => {
 	const userStore = useUserStore();
+
+	// Record navigation metric
+	recordNavigation(from.path || 'unknown', to.path || 'unknown');
 
 	if (to.meta.public !== true && to.meta.track !== false) {
 		// The timeout gives the page some breathing room to load. No need to clog up the thread with
