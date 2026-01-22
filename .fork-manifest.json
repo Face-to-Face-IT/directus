@@ -1,0 +1,66 @@
+{
+  "upstream_base": "v11.14.0",
+  "upstream_repo": "directus/directus",
+  "last_sync": "2026-01-22T00:00:00Z",
+  "branches": {
+    "main": "Synced with upstream, pure mirror",
+    "custom": "main + internal features merged"
+  },
+  "features": [
+    {
+      "id": "form-context",
+      "branch": "feature/form-context",
+      "description": "$FORM context for nested relationships",
+      "status": "internal",
+      "merge_to_custom": true
+    },
+    {
+      "id": "collection-url-params",
+      "branch": "feature/collection-url-params",
+      "description": "URL prefill composable for collections",
+      "status": "internal",
+      "merge_to_custom": true
+    },
+    {
+      "id": "opentelemetry",
+      "branch": "feature/opentelemetry",
+      "description": "Full OpenTelemetry instrumentation",
+      "status": "internal",
+      "merge_to_custom": true
+    },
+    {
+      "id": "packer",
+      "branch": "feature/packer",
+      "description": "Image build automation with Packer (vSphere/QEMU)",
+      "status": "internal",
+      "merge_to_custom": true
+    },
+    {
+      "id": "external-mcp-tools",
+      "branch": "feature/external-mcp-tools",
+      "description": "External MCP server support",
+      "status": "upstream-pending",
+      "upstream_pr": "https://github.com/directus/directus/pull/26513",
+      "merge_to_custom": false,
+      "note": "Do not rebase - has open upstream PR"
+    },
+    {
+      "id": "ai-file-content-tool",
+      "branch": "feature/ai-file-content-tool",
+      "description": "AI file content tool for text extraction",
+      "status": "upstream-pending",
+      "upstream_pr": "https://github.com/directus/directus/pull/26514",
+      "merge_to_custom": false,
+      "note": "Do not rebase - has open upstream PR"
+    },
+    {
+      "id": "draft-items",
+      "branch": "feature/draft-items",
+      "description": "Save work-in-progress items as drafts",
+      "status": "experimental",
+      "merge_to_custom": false,
+      "note": "Directus team building official version - waiting for upstream"
+    }
+  ],
+  "releases": []
+}

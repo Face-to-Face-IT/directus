@@ -1,0 +1,184 @@
+name: Update Custom Branch
+
+# Merges internal feature branches into the custom integration branch
+# Only processes features where merge_to_custom: true in .fork-manifest.json
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      reset_custom:
+        description: 'Reset custom branch to main before merging (use if custom has diverged)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  update-custom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get internal features
+        id: features
+        run: |
+          # Get features where merge_to_custom is true
+          FEATURES=$(jq -r '.features[] | select(.merge_to_custom == true) | .branch' .fork-manifest.json)
+          echo "Internal features to merge:"
+          echo "$FEATURES"
+
+          # Convert to array for iteration
+          echo "features<<EOF" >> $GITHUB_OUTPUT
+          echo "$FEATURES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update custom branch
+        id: update
+        run: |
+          # Fetch all branches
+          git fetch origin
+
+          # Checkout custom branch (create from main if it doesn't exist)
+          if git show-ref --verify --quiet refs/remotes/origin/custom; then
+            git checkout custom
+            git pull origin custom
+          else
+            echo "Creating custom branch from main"
+            git checkout -b custom origin/main
+          fi
+
+          # Optionally reset custom to main
+          if [ "${{ inputs.reset_custom }}" == "true" ]; then
+            echo "Resetting custom to main..."
+            git reset --hard origin/main
+          fi
+
+          # Merge main into custom first to get latest upstream changes
+          echo "Merging main into custom..."
+          if ! git merge origin/main -m "Merge main into custom"; then
+            echo "Failed to merge main into custom"
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "failed_branch=main" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+          # Merge each internal feature
+          FAILED_MERGES=""
+          while IFS= read -r branch; do
+            [ -z "$branch" ] && continue
+
+            echo "Merging $branch into custom..."
+
+            # Check if branch exists
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+              echo "Warning: Branch $branch does not exist, skipping"
+              continue
+            fi
+
+            # Attempt merge
+            if git merge "origin/$branch" -m "Merge $branch into custom"; then
+              echo "Successfully merged $branch"
+            else
+              echo "Failed to merge $branch"
+              git merge --abort
+              FAILED_MERGES="$FAILED_MERGES $branch"
+            fi
+          done <<< "${{ steps.features.outputs.features }}"
+
+          if [ -n "$FAILED_MERGES" ]; then
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "failed_branches=$FAILED_MERGES" >> $GITHUB_OUTPUT
+          else
+            echo "success=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push custom branch
+        if: steps.update.outputs.success == 'true'
+        run: |
+          git push origin custom
+
+      - name: Create issue for failed merges
+        if: steps.update.outputs.success == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAILED="${{ steps.update.outputs.failed_branches }}"
+
+          # Check if issue already exists
+          EXISTING=$(gh issue list --label "merge-failed" --search "custom branch in:title" --json number --jq '.[0].number')
+
+          BODY="## Merge to Custom Failed
+
+          The following feature branches failed to merge into the custom integration branch:
+
+          \`\`\`
+          $FAILED
+          \`\`\`
+
+          ### Resolution Steps
+
+          1. Checkout the custom branch locally:
+             \`\`\`bash
+             git fetch origin
+             git checkout custom
+             \`\`\`
+
+          2. Merge main first:
+             \`\`\`bash
+             git merge origin/main
+             \`\`\`
+
+          3. Merge each feature branch, resolving conflicts:
+             \`\`\`bash
+             git merge origin/feature/xxx
+             # Resolve conflicts
+             git add <files>
+             git commit
+             \`\`\`
+
+          4. Push the updated custom branch:
+             \`\`\`bash
+             git push origin custom
+             \`\`\`
+
+          5. Close this issue"
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "Merge attempt failed again at $(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          $BODY"
+          else
+            gh issue create \
+              --title "Merge to custom branch failed" \
+              --label "merge-failed" \
+              --body "$BODY"
+          fi
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Custom Branch Update Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.update.outputs.success }}" == "true" ]; then
+            echo "✅ Successfully updated custom branch with all internal features." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Some merges failed. See created issue for resolution steps." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Failed branches: ${{ steps.update.outputs.failed_branches }}" >> $GITHUB_STEP_SUMMARY
+          fi
