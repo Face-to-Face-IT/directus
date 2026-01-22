@@ -1,0 +1,185 @@
+name: Publish Docker Image
+
+on:
+  push:
+    branches:
+      - custom
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.changeset/**'
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: 'Release version suffix (e.g., "1" for 11.14.0-f2f.1). Leave empty for dev build.'
+        required: false
+        type: string
+      platforms:
+        description: 'Platforms to build'
+        required: false
+        type: choice
+        default: 'linux/amd64,linux/arm64'
+        options:
+          - 'linux/amd64'
+          - 'linux/amd64,linux/arm64'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  prepare:
+    name: Prepare Release Info
+    runs-on: ubuntu-latest
+    outputs:
+      upstream_version: ${{ steps.manifest.outputs.upstream_version }}
+      fork_version: ${{ steps.version.outputs.fork_version }}
+      is_release: ${{ steps.version.outputs.is_release }}
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read fork manifest
+        id: manifest
+        run: |
+          UPSTREAM_VERSION=$(jq -r '.upstream_base' .fork-manifest.json | sed 's/^v//')
+          echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
+          echo "Upstream version: $UPSTREAM_VERSION"
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ -n "${{ inputs.release_version }}" ]; then
+            FORK_VERSION="${{ steps.manifest.outputs.upstream_version }}-f2f.${{ inputs.release_version }}"
+            IS_RELEASE="true"
+          else
+            FORK_VERSION="custom"
+            IS_RELEASE="false"
+          fi
+          echo "fork_version=$FORK_VERSION" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "Fork version: $FORK_VERSION (release: $IS_RELEASE)"
+
+      - name: Generate tags
+        id: tags
+        run: |
+          REGISTRY="${{ env.REGISTRY }}"
+          IMAGE="${{ env.IMAGE_NAME }}"
+          TAGS=""
+
+          if [ "${{ steps.version.outputs.is_release }}" == "true" ]; then
+            # Release tags
+            VERSION="${{ steps.version.outputs.fork_version }}"
+            UPSTREAM="${{ steps.manifest.outputs.upstream_version }}"
+
+            TAGS="${REGISTRY}/${IMAGE}:${VERSION}"
+            TAGS="${TAGS},${REGISTRY}/${IMAGE}:${UPSTREAM}-f2f"
+            TAGS="${TAGS},${REGISTRY}/${IMAGE}:latest"
+          else
+            # Dev tags
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+            TAGS="${REGISTRY}/${IMAGE}:custom"
+            TAGS="${TAGS},${REGISTRY}/${IMAGE}:custom-${SHORT_SHA}"
+          fi
+
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "Tags: $TAGS"
+
+  build-and-push:
+    name: Build and Push
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.title=Directus (F2F Fork)
+            org.opencontainers.image.description=Face-to-Face IT fork of Directus with custom features
+            org.opencontainers.image.vendor=Face-to-Face IT
+            com.f2f.upstream-version=${{ needs.prepare.outputs.upstream_version }}
+            com.f2f.fork-version=${{ needs.prepare.outputs.fork_version }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: ${{ inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: true
+          tags: ${{ needs.prepare.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate build summary
+        run: |
+          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.prepare.outputs.fork_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Upstream Base:** ${{ needs.prepare.outputs.upstream_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare.outputs.tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+  update-manifest:
+    name: Update Manifest
+    needs: [prepare, build-and-push]
+    if: needs.prepare.outputs.is_release == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: custom
+
+      - name: Update manifest with release
+        run: |
+          VERSION="${{ needs.prepare.outputs.fork_version }}"
+          UPSTREAM="${{ needs.prepare.outputs.upstream_version }}"
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Get current features that are merged to custom
+          FEATURES=$(jq -c '[.features[] | select(.merge_to_custom == true) | .branch]' .fork-manifest.json)
+
+          # Add release to manifest
+          jq --arg version "$VERSION" \
+             --arg upstream "$UPSTREAM" \
+             --arg date "$DATE" \
+             --argjson features "$FEATURES" \
+             '.releases = [{"tag": $version, "upstream_base": $upstream, "date": $date, "features": $features}] + .releases' \
+             .fork-manifest.json > tmp.json && mv tmp.json .fork-manifest.json
+
+      - name: Commit manifest update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .fork-manifest.json
+          git commit -m "chore: record release ${{ needs.prepare.outputs.fork_version }}"
+          git push
