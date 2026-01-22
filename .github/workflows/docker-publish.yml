@@ -25,7 +25,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Must be lowercase for Docker
+  IMAGE_NAME: face-to-face-it/directus
 
 jobs:
   prepare:
