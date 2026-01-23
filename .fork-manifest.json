@@ -1,0 +1,43 @@
+{
+  "upstream_base": "v11.14.1",
+  "upstream_repo": "directus/directus",
+  "last_sync": "2026-01-23T00:00:00Z",
+  "docker_image": "ghcr.io/face-to-face-it/directus",
+  "branches": {
+    "main": "Synced with upstream, pure mirror",
+    "custom": "main + internal features merged"
+  },
+  "features": [
+    {
+      "branch": "feature/opentelemetry",
+      "description": "Full OpenTelemetry instrumentation",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/form-context",
+      "description": "$FORM context for nested relationships",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/packer",
+      "description": "Image build automation with Packer (vSphere/QEMU)",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/ai-file-content-tool",
+      "description": "AI file content tool for text extraction",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/collection-url-params",
+      "description": "URL prefill composable for collections",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/external-mcp-tools",
+      "description": "External MCP server support",
+      "merge_to_custom": true
+    }
+  ],
+  "releases": []
+}
