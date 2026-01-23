@@ -1,7 +1,7 @@
 {
-  "upstream_base": "v11.14.0",
+  "upstream_base": "v11.14.1",
   "upstream_repo": "directus/directus",
-  "last_sync": "2026-01-22T00:00:00Z",
+  "last_sync": "2026-01-23T00:00:00Z",
   "docker_image": "ghcr.io/face-to-face-it/directus",
   "branches": {
     "main": "Synced with upstream, pure mirror",
