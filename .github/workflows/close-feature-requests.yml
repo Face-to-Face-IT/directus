@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   close-discussion:
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     if: github.event.discussion.category.name == 'Feature Requests'
     steps:
       - name: Close discussion and add comment
