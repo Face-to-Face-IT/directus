@@ -39,5 +39,19 @@
       "merge_to_custom": true
     }
   ],
-  "releases": []
+  "releases": [
+    {
+      "tag": "11.14.1-f2f.1",
+      "upstream_base": "11.14.1",
+      "date": "2026-01-25T15:31:14Z",
+      "features": [
+        "feature/opentelemetry",
+        "feature/form-context",
+        "feature/packer",
+        "feature/ai-file-content-tool",
+        "feature/collection-url-params",
+        "feature/external-mcp-tools"
+      ]
+    }
+  ]
 }
