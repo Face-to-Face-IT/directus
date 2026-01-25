@@ -19,7 +19,7 @@ env:
 jobs:
   check-npm-packages:
     name: Check NPM Packages
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -29,7 +29,7 @@ jobs:
 
   check-version:
     name: Check Version
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: check-npm-packages
     outputs:
       prerelease: ${{ steps.version.outputs.prerelease && true || false }}
@@ -43,7 +43,7 @@ jobs:
 
   publish-npm:
     name: Publish to NPM
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: check-version
     permissions:
       actions: write
@@ -88,7 +88,7 @@ jobs:
           - platform: linux/amd64
             runner: ubuntu-latest
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
     runs-on: ${{ matrix.runner }}
     permissions:
       actions: write
@@ -114,8 +114,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Cache Docker layers
         uses: actions/cache@v5
@@ -156,7 +156,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push by digest
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         id: build
         with:
           context: .
@@ -164,8 +164,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
           # prettier-ignore
           outputs: type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
@@ -193,7 +191,7 @@ jobs:
 
   publish-docker-images:
     name: Publish Docker Images
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs:
       - check-version
       - build-images
@@ -224,8 +222,8 @@ jobs:
         uses: sigstore/cosign-installer@v3
         if: env.DOCKERHUB_IMAGE != ''
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Extract metadata for Docker image
         id: meta
@@ -303,7 +301,7 @@ jobs:
 
   create-release:
     name: Create Release
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs:
       - check-version
       - publish-npm
