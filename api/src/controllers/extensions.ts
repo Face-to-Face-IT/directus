@@ -165,15 +165,24 @@ router.get(
 router.post(
 	'/registry/install',
 	asyncHandler(async (req, _res, next) => {
+		console.log('[DEBUG install] Starting install handler');
+		console.log('[DEBUG install] accountability.admin:', req.accountability?.admin);
+
 		if (req.accountability && req.accountability.admin !== true) {
+			console.log('[DEBUG install] REJECTED: admin check failed');
 			throw new ForbiddenError();
 		}
 
 		const { version, extension } = req.body;
+		console.log('[DEBUG install] body.extension:', extension);
+		console.log('[DEBUG install] body.version:', version);
 
 		if (!version || !extension) {
+			console.log('[DEBUG install] REJECTED: missing version or extension');
 			throw new ForbiddenError();
 		}
+
+		console.log('[DEBUG install] Calling service.install()');
 
 		const service = new ExtensionsService({
 			accountability: req.accountability,
@@ -181,6 +190,7 @@ router.post(
 		});
 
 		await service.install(extension, version);
+		console.log('[DEBUG install] install completed successfully');
 		return next();
 	}),
 	respond,
