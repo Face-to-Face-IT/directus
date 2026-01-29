@@ -17,6 +17,7 @@ import express from 'express';
 import { isNil } from 'lodash-es';
 import { UUID_REGEX } from '../constants.js';
 import { getExtensionManager } from '../extensions/index.js';
+import { useLogger } from '../logger/index.js';
 import { respond } from '../middleware/respond.js';
 import useCollection from '../middleware/use-collection.js';
 import { ExtensionReadError, ExtensionsService } from '../services/extensions.js';
@@ -165,24 +166,25 @@ router.get(
 router.post(
 	'/registry/install',
 	asyncHandler(async (req, _res, next) => {
-		console.log('[DEBUG install] Starting install handler');
-		console.log('[DEBUG install] accountability.admin:', req.accountability?.admin);
+		const logger = useLogger();
+		logger.info('[DEBUG install] Starting install handler');
+		logger.info('[DEBUG install] accountability.admin: ' + req.accountability?.admin);
 
 		if (req.accountability && req.accountability.admin !== true) {
-			console.log('[DEBUG install] REJECTED: admin check failed');
+			logger.info('[DEBUG install] REJECTED: admin check failed');
 			throw new ForbiddenError();
 		}
 
 		const { version, extension } = req.body;
-		console.log('[DEBUG install] body.extension:', extension);
-		console.log('[DEBUG install] body.version:', version);
+		logger.info('[DEBUG install] body.extension: ' + extension);
+		logger.info('[DEBUG install] body.version: ' + version);
 
 		if (!version || !extension) {
-			console.log('[DEBUG install] REJECTED: missing version or extension');
+			logger.info('[DEBUG install] REJECTED: missing version or extension');
 			throw new ForbiddenError();
 		}
 
-		console.log('[DEBUG install] Calling service.install()');
+		logger.info('[DEBUG install] Calling service.install()');
 
 		const service = new ExtensionsService({
 			accountability: req.accountability,
@@ -190,7 +192,7 @@ router.post(
 		});
 
 		await service.install(extension, version);
-		console.log('[DEBUG install] install completed successfully');
+		logger.info('[DEBUG install] install completed successfully');
 		return next();
 	}),
 	respond,

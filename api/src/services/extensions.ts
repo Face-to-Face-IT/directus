@@ -7,6 +7,7 @@ import { isObject } from '@directus/utils';
 import type { Knex } from 'knex';
 import getDatabase from '../database/index.js';
 import { getExtensionManager } from '../extensions/index.js';
+import { useLogger } from '../logger/index.js';
 import { transaction } from '../utils/transaction.js';
 import { ItemsService } from './items.js';
 
@@ -40,6 +41,7 @@ export class ExtensionsService {
 
 	private async preInstall(extensionId: string, versionId: string) {
 		const env = useEnv();
+		const logger = useLogger();
 
 		const describeOptions: DescribeOptions = {};
 
@@ -47,18 +49,18 @@ export class ExtensionsService {
 			describeOptions.registry = env['MARKETPLACE_REGISTRY'];
 		}
 
-		console.log('[DEBUG preInstall] extensionId:', extensionId);
-		console.log('[DEBUG preInstall] versionId:', versionId);
-		console.log('[DEBUG preInstall] registry:', describeOptions.registry);
+		logger.info('[DEBUG preInstall] extensionId: ' + extensionId);
+		logger.info('[DEBUG preInstall] versionId: ' + versionId);
+		logger.info('[DEBUG preInstall] registry: ' + describeOptions.registry);
 
 		const extension = await describe(extensionId, describeOptions);
 
-		console.log('[DEBUG preInstall] describe returned, versions count:', extension.data.versions.length);
-		console.log('[DEBUG preInstall] version IDs:', JSON.stringify(extension.data.versions.map((v) => v.id)));
+		logger.info('[DEBUG preInstall] describe returned, versions count: ' + extension.data.versions.length);
+		logger.info('[DEBUG preInstall] version IDs: ' + JSON.stringify(extension.data.versions.map((v) => v.id)));
 
 		const version = extension.data.versions.find((version) => version.id === versionId);
 
-		console.log('[DEBUG preInstall] find result:', version ? 'FOUND' : 'NOT FOUND');
+		logger.info('[DEBUG preInstall] find result: ' + (version ? 'FOUND' : 'NOT FOUND'));
 
 		if (!version) {
 			throw new ForbiddenError();
