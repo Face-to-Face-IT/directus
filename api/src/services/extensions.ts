@@ -89,15 +89,24 @@ export class ExtensionsService {
 	}
 
 	async install(extensionId: string, versionId: string) {
+		const logger = useLogger();
 		const { extension, version } = await this.preInstall(extensionId, versionId);
 
-		await this.extensionsItemService.createOne({
-			id: extensionId,
-			enabled: true,
-			folder: versionId,
-			source: 'registry',
-			bundle: null,
-		});
+		logger.info('[DEBUG install] preInstall succeeded, creating extension record...');
+		try {
+			await this.extensionsItemService.createOne({
+				id: extensionId,
+				enabled: true,
+				folder: versionId,
+				source: 'registry',
+				bundle: null,
+			});
+			logger.info('[DEBUG install] createOne succeeded');
+		} catch (err: any) {
+			logger.info('[DEBUG install] createOne FAILED: ' + err.message);
+			logger.info('[DEBUG install] error code: ' + err.code);
+			throw err;
+		}
 
 		if (extension.data.type === 'bundle' && version.bundled.length > 0) {
 			await this.extensionsItemService.createMany(
