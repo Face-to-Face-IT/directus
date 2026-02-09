@@ -528,7 +528,7 @@ function getComparisonIndicatorClasses(field: TFormField, isGroup = false) {
 
 .v-divider {
 	margin-block-end: 50px;
-	grid-column: 1 / 3;
+	grid-column: start / fill;
 }
 
 .indicator-active {

@@ -353,7 +353,11 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 
 .full,
 .fill {
-	grid-column: 1 / span 2;
+	grid-column: 1 / -1;
+}
+
+.third {
+	grid-column: span 2;
 }
 
 .v-input.monospace {
@@ -460,10 +464,31 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 	position: relative;
 	display: grid;
 	gap: 8px;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-columns: repeat(6, 1fr);
+	container-type: inline-size;
 
 	& + & {
 		margin-block-start: 8px;
+	}
+
+	// Default narrow: everything full width
+	> .field-select {
+		grid-column: 1 / -1;
+	}
+
+	@container (inline-size >= 556px) {
+		> .field-select.third {
+			grid-column: span 2;
+		}
+
+		> .field-select.half {
+			grid-column: span 3;
+		}
+
+		> .field-select.full,
+		> .field-select.fill {
+			grid-column: 1 / -1;
+		}
 	}
 
 	&.nested {

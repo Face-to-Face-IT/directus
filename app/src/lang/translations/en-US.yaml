@@ -94,6 +94,7 @@ select_earlier_revision_to_restore: Select an earlier revision to consider resto
 enter_a_name: Enter a Name...
 duplicate_field: Duplicate Field
 half_width: Half Width
+third_width: Third Width
 full_width: Full Width
 group: Group
 popular: Popular
