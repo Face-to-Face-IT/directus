@@ -14,6 +14,7 @@ import createApp from './app.js';
 import getDatabase from './database/index.js';
 import emitter from './emitter.js';
 import { useLogger } from './logger/index.js';
+import { shutdownTelemetry } from './telemetry/opentelemetry.js';
 import { getAddress } from './utils/get-address.js';
 import { getConfigFromEnv } from './utils/get-config-from-env.js';
 import { getIPFromReq } from './utils/get-ip-from-req.js';
@@ -140,6 +141,8 @@ export async function createServer(): Promise<http.Server> {
 		await database.destroy();
 
 		logger.info('Database connections destroyed');
+
+		await shutdownTelemetry();
 	}
 
 	async function onShutdown() {

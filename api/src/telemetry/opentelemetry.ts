@@ -1,4 +1,3 @@
-import { useEnv } from '@directus/env';
 import { logs } from '@opentelemetry/api-logs';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
@@ -9,23 +8,39 @@ import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs
 import { MeterProvider, PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
-import { useLogger } from '../logger/index.js';
 
 let sdk: NodeSDK | null = null;
 let loggerProvider: LoggerProvider | null = null;
 let meterProvider: MeterProvider | null = null;
 
-export async function initTelemetry() {
-	const env = useEnv();
-	const logger = useLogger();
+/**
+ * Read process.env directly instead of useEnv() because OpenTelemetry must be
+ * initialized before any other modules (http, express, database drivers, etc.)
+ * are imported. Using useEnv() would pull in the full env/logger dependency
+ * tree too early, defeating auto-instrumentation.
+ */
+function getEnvBoolean(key: string, defaultValue: boolean): boolean {
+	const value = process.env[key];
 
-	if (env['OPENTELEMETRY_ENABLED'] !== true) {
+	if (value === undefined || value === '') {
+		return defaultValue;
+	}
+
+	return value === 'true' || value === '1';
+}
+
+function getEnvString(key: string, defaultValue: string): string {
+	return process.env[key] || defaultValue;
+}
+
+export async function initTelemetry() {
+	if (!getEnvBoolean('OPENTELEMETRY_ENABLED', false)) {
 		return;
 	}
 
-	const baseEndpoint = (env['OPENTELEMETRY_EXPORTER_OTLP_ENDPOINT'] as string) || 'http://localhost:4318';
-	const serviceName = (env['OPENTELEMETRY_SERVICE_NAME'] as string) || 'directus-api';
-	const serviceVersion = process.env['npm_package_version'] || 'unknown';
+	const baseEndpoint = getEnvString('OPENTELEMETRY_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4318');
+	const serviceName = getEnvString('OPENTELEMETRY_SERVICE_NAME', 'directus-api');
+	const serviceVersion = getEnvString('npm_package_version', 'unknown');
 
 	const resource = new Resource({
 		[ATTR_SERVICE_NAME]: serviceName,
@@ -72,9 +87,11 @@ export async function initTelemetry() {
 
 	try {
 		sdk.start();
-		logger.info('OpenTelemetry initialized with traces, logs, and metrics');
+		// eslint-disable-next-line no-console -- logger unavailable (circular dep), OTel must init before logger
+		console.log('[OpenTelemetry] Initialized with traces, logs, and metrics');
 	} catch (error) {
-		logger.error(error, 'Error initializing OpenTelemetry');
+		// eslint-disable-next-line no-console -- logger unavailable (circular dep), OTel must init before logger
+		console.error('[OpenTelemetry] Error initializing:', error);
 	}
 }
 
@@ -93,16 +110,21 @@ export function getOtelMeter(name = 'directus-api') {
 }
 
 /**
- * Gracefully shutdown OpenTelemetry providers
+ * Gracefully shutdown OpenTelemetry providers.
+ * Safe to call even if telemetry was never initialized (all providers will be null).
  */
 export async function shutdownTelemetry() {
-	const logger = useLogger();
+	if (!sdk && !loggerProvider && !meterProvider) {
+		return;
+	}
 
 	try {
 		await Promise.all([sdk?.shutdown(), loggerProvider?.shutdown(), meterProvider?.shutdown()]);
 
-		logger.info('OpenTelemetry shutdown complete');
+		// eslint-disable-next-line no-console -- logger unavailable (circular dep with pino-otel-transport)
+		console.log('[OpenTelemetry] Shutdown complete');
 	} catch (error) {
-		logger.error(error, 'Error shutting down OpenTelemetry');
+		// eslint-disable-next-line no-console -- logger unavailable (circular dep with pino-otel-transport)
+		console.error('[OpenTelemetry] Error shutting down:', error);
 	}
 }
