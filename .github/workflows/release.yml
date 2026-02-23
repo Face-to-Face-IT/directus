@@ -123,8 +123,6 @@ jobs:
           - platform: linux/arm64
             runner: blacksmith-4vcpu-ubuntu-2404-arm
     runs-on: ${{ matrix.runner }}
-    # Only build arm64 for releases to save CI minutes
-    if: matrix.platform == 'linux/amd64' || needs.prepare.outputs.is_release == 'true'
     permissions:
       contents: read
       packages: write
