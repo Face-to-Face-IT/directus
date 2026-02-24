@@ -306,6 +306,22 @@ jobs:
             --notes "${NOTES}" \
             --target custom
 
+  dispatch-terraform-update:
+    name: Dispatch terraform image tag update
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    needs:
+      - prepare
+      - publish-docker-images
+    if: needs.prepare.outputs.is_release == 'true'
+    steps:
+      - name: Dispatch repository event
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.DISPATCH_TOKEN }}
+          repository: Face-to-Face-IT/terraform
+          event-type: update-image-tag
+          client-payload: '{"service":"directus","image_tag":"${{ needs.prepare.outputs.fork_version }}","triggered_by":"${{ github.repository }}"}'
+
   update-manifest:
     name: Update Manifest
     needs: [prepare, publish-docker-images]
