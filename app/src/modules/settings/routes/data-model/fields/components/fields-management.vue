@@ -187,8 +187,29 @@ async function setNestedSort(updates?: Field[]) {
 .field-grid {
 	position: relative;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-columns: repeat(6, 1fr);
+	container-type: inline-size;
 	padding-block-end: 24px;
+
+	// Default narrow: everything full width
+	> .field-select {
+		grid-column: 1 / -1;
+	}
+
+	@container (inline-size >= 556px) {
+		> .field-select.third {
+			grid-column: span 2;
+		}
+
+		> .field-select.half {
+			grid-column: span 3;
+		}
+
+		> .field-select.full,
+		> .field-select.fill {
+			grid-column: 1 / -1;
+		}
+	}
 }
 
 .field-select {
