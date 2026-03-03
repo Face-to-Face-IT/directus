@@ -46,6 +46,20 @@
   ],
   "releases": [
     {
+      "tag": "11.15.4-f2f.2",
+      "upstream_base": "11.15.4",
+      "date": "2026-03-03T16:56:59Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/opentelemetry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools"
+      ]
+    },
+    {
       "tag": "11.15.4-f2f.1",
       "upstream_base": "11.15.4",
       "date": "2026-02-23T02:15:37Z",
