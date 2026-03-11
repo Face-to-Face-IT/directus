@@ -526,4 +526,96 @@ describe('applyRelationalSearch', () => {
 			expect(rawQuery.bindings).toContain('%hello%');
 		});
 	});
+
+	describe('UUID FK traversal', () => {
+		test('traverses M2O relation through UUID foreign key field', () => {
+			// Simulates: employees.user (uuid FK) -> directus_users.first_name
+			// The 'user' field has type 'uuid' because directus_users.id is UUID,
+			// but it must still be recognized as M2O for relational search.
+			const schema = new SchemaBuilder()
+				.collection('employees', (c) => {
+					c.field('id').id();
+					c.field('title').string();
+					c.field('user').m2o('users');
+				})
+				.collection('users', (c) => {
+					c.field('id').id();
+					c.field('first_name').string();
+					c.field('last_name').string();
+				})
+				.build();
+
+			// Override the FK field type to uuid (SchemaBuilder defaults M2O to integer)
+			schema.collections['employees']!.fields['user']!.type = 'uuid';
+
+			const db = vi.mocked(knex.default({ client: Client_SQLite3 }));
+			const queryBuilder = db.queryBuilder();
+
+			queryBuilder.where(function () {
+				applyRelationalSearch(
+					db as any,
+					schema,
+					this,
+					'piazza',
+					'employees',
+					'user',
+					schema.collections['employees']!.fields['user']!,
+					adminPermissions,
+					1,
+					new Set(['employees']),
+				);
+			});
+
+			const rawQuery = queryBuilder.toSQL();
+
+			// Should generate EXISTS with LIKE on users.first_name / users.last_name
+			expect(rawQuery.sql).toContain('exists');
+			expect(rawQuery.sql).toContain('"users"');
+			expect(rawQuery.sql).toContain('LOWER');
+			expect(rawQuery.bindings).toContain('%piazza%');
+		});
+
+		test('does not treat UUID FK as uuid exact-match when search is not a UUID', () => {
+			// Ensures that searching 'piazza' through a uuid-typed M2O field
+			// does NOT try UUID exact-match (which would find nothing)
+			const schema = new SchemaBuilder()
+				.collection('employees', (c) => {
+					c.field('id').id();
+					c.field('user').m2o('users');
+				})
+				.collection('users', (c) => {
+					c.field('id').id();
+					c.field('name').string();
+				})
+				.build();
+
+			schema.collections['employees']!.fields['user']!.type = 'uuid';
+
+			const db = vi.mocked(knex.default({ client: Client_SQLite3 }));
+			const queryBuilder = db.queryBuilder();
+
+			queryBuilder.where(function () {
+				applyRelationalSearch(
+					db as any,
+					schema,
+					this,
+					'piazza', // Not a UUID - should traverse relation, not exact-match
+					'employees',
+					'user',
+					schema.collections['employees']!.fields['user']!,
+					adminPermissions,
+					1,
+					new Set(['employees']),
+				);
+			});
+
+			const rawQuery = queryBuilder.toSQL();
+
+			// Should NOT contain the search term as a direct uuid comparison
+			// It should contain it as a LIKE pattern in the EXISTS subquery
+			expect(rawQuery.sql).not.toContain('"user" = ?');
+			expect(rawQuery.sql).toContain('LOWER');
+			expect(rawQuery.bindings).toContain('%piazza%');
+		});
+	});
 });
