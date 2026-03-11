@@ -2,6 +2,7 @@ import { useEnv } from '@directus/env';
 import type { FieldOverview, Permission, Relation, SchemaOverview } from '@directus/types';
 import { getRelationInfo } from '@directus/utils';
 import type { Knex } from 'knex';
+import { getHelpers } from '../../../helpers/index.js';
 import { getCases } from '../../../../permissions/modules/process-ast/lib/get-cases.js';
 
 /**
@@ -359,7 +360,11 @@ function applyM2ASearch(
 					.whereExists(function () {
 						this.select(knex.raw(1))
 							.from(targetCollection)
-							.whereRaw(`??.?? = ??.??`, [targetCollection, targetPrimary, junctionCollection, junctionField]);
+							.whereRaw(`${getHelpers(knex).schema.castA2oPrimaryKey()} = ??.??`, [
+								`${targetCollection}.${targetPrimary}`,
+								junctionCollection,
+								junctionField,
+							]);
 
 						addRelatedSearchConditions(
 							knex,
