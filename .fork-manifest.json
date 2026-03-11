@@ -1,100 +1,116 @@
 {
-	"upstream_base": "v11.15.4",
-	"upstream_repo": "directus/directus",
-	"last_sync": "2026-02-22T00:00:00Z",
-	"docker_image": "ghcr.io/face-to-face-it/directus",
-	"branches": {
-		"main": "Synced with upstream, pure mirror",
-		"custom": "main + internal features merged"
-	},
-	"features": [
-		{
-			"branch": "feature/form-context",
-			"description": "$FORM context for nested relationships",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/collection-url-params",
-			"description": "URL prefill composable for collections",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/packer",
-			"description": "Image build automation with Packer (vSphere/QEMU)",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/form-grid-columns",
-			"description": "Third-width column option for form grid (3-column layout)",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/opentelemetry",
-			"description": "Full OpenTelemetry instrumentation",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/ai-file-content-tool",
-			"description": "AI file content tool for text extraction",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/external-mcp-tools",
-			"description": "External MCP server support",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/save-and-stay-default",
-			"description": "Make save-and-stay the default save button behavior",
-			"merge_to_custom": true
-		},
-		{
-			"branch": "feature/relational-search",
-			"description": "Relational field search via EXISTS subqueries (M2O, O2M, M2M, M2A)",
-			"merge_to_custom": true
-		}
-	],
-	"releases": [
-		{
-			"tag": "11.15.4-f2f.2",
-			"upstream_base": "11.15.4",
-			"date": "2026-03-03T16:56:59Z",
-			"features": [
-				"feature/form-context",
-				"feature/collection-url-params",
-				"feature/packer",
-				"feature/form-grid-columns",
-				"feature/opentelemetry",
-				"feature/ai-file-content-tool",
-				"feature/external-mcp-tools"
-			]
-		},
-		{
-			"tag": "11.15.4-f2f.1",
-			"upstream_base": "11.15.4",
-			"date": "2026-02-23T02:15:37Z",
-			"features": [
-				"feature/form-context",
-				"feature/collection-url-params",
-				"feature/packer",
-				"feature/form-grid-columns",
-				"feature/opentelemetry",
-				"feature/ai-file-content-tool",
-				"feature/external-mcp-tools"
-			]
-		},
-		{
-			"tag": "11.14.1-f2f.1",
-			"upstream_base": "11.14.1",
-			"date": "2026-01-25T15:31:14Z",
-			"features": [
-				"feature/opentelemetry",
-				"feature/form-context",
-				"feature/packer",
-				"feature/ai-file-content-tool",
-				"feature/collection-url-params",
-				"feature/external-mcp-tools"
-			]
-		}
-	]
+  "upstream_base": "v11.15.4",
+  "upstream_repo": "directus/directus",
+  "last_sync": "2026-02-22T00:00:00Z",
+  "docker_image": "ghcr.io/face-to-face-it/directus",
+  "branches": {
+    "main": "Synced with upstream, pure mirror",
+    "custom": "main + internal features merged"
+  },
+  "features": [
+    {
+      "branch": "feature/form-context",
+      "description": "$FORM context for nested relationships",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/collection-url-params",
+      "description": "URL prefill composable for collections",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/packer",
+      "description": "Image build automation with Packer (vSphere/QEMU)",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/form-grid-columns",
+      "description": "Third-width column option for form grid (3-column layout)",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/opentelemetry",
+      "description": "Full OpenTelemetry instrumentation",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/ai-file-content-tool",
+      "description": "AI file content tool for text extraction",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/external-mcp-tools",
+      "description": "External MCP server support",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/save-and-stay-default",
+      "description": "Make save-and-stay the default save button behavior",
+      "merge_to_custom": true
+    },
+    {
+      "branch": "feature/relational-search",
+      "description": "Relational field search via EXISTS subqueries (M2O, O2M, M2M, M2A)",
+      "merge_to_custom": true
+    }
+  ],
+  "releases": [
+    {
+      "tag": "11.15.4-f2f.3",
+      "upstream_base": "11.15.4",
+      "date": "2026-03-11T17:09:57Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/opentelemetry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools",
+        "feature/save-and-stay-default",
+        "feature/relational-search"
+      ]
+    },
+    {
+      "tag": "11.15.4-f2f.2",
+      "upstream_base": "11.15.4",
+      "date": "2026-03-03T16:56:59Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/opentelemetry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools"
+      ]
+    },
+    {
+      "tag": "11.15.4-f2f.1",
+      "upstream_base": "11.15.4",
+      "date": "2026-02-23T02:15:37Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/opentelemetry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools"
+      ]
+    },
+    {
+      "tag": "11.14.1-f2f.1",
+      "upstream_base": "11.14.1",
+      "date": "2026-01-25T15:31:14Z",
+      "features": [
+        "feature/opentelemetry",
+        "feature/form-context",
+        "feature/packer",
+        "feature/ai-file-content-tool",
+        "feature/collection-url-params",
+        "feature/external-mcp-tools"
+      ]
+    }
+  ]
 }
