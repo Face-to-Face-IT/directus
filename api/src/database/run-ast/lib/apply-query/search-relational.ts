@@ -2,8 +2,8 @@ import { useEnv } from '@directus/env';
 import type { FieldOverview, Permission, Relation, SchemaOverview } from '@directus/types';
 import { getRelationInfo } from '@directus/utils';
 import type { Knex } from 'knex';
-import { getHelpers } from '../../../helpers/index.js';
 import { getCases } from '../../../../permissions/modules/process-ast/lib/get-cases.js';
+import { getHelpers } from '../../../helpers/index.js';
 
 /**
  * Relational field types that can be searched through.
@@ -421,19 +421,10 @@ function addRelatedSearchConditions(
 		let hasCondition = false;
 
 		for (const [name, field] of fields) {
-			// Primitive field search conditions
-			if (['text', 'string'].includes(field.type)) {
-				this.orWhereRaw(`LOWER(??) LIKE ?`, [`${relatedCollection}.${name}`, `%${searchQuery.toLowerCase()}%`]);
-				hasCondition = true;
-			} else if (field.type === 'uuid') {
-				// Only match exact UUIDs
-				const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-				if (uuidRegex.test(searchQuery)) {
-					this.orWhere({ [`${relatedCollection}.${name}`]: searchQuery });
-					hasCondition = true;
-				}
-			} else if (isRelationalField(field)) {
+			// Relational fields must be checked before uuid, because FK fields to UUID-keyed
+			// collections (e.g. employees.user -> directus_users) have type 'uuid' but need
+			// relational traversal, not UUID exact-match.
+			if (isRelationalField(field)) {
 				// Recurse into nested relations (depth + 1)
 				applyRelationalSearch(
 					knex,
@@ -447,7 +438,19 @@ function addRelatedSearchConditions(
 					currentDepth + 1,
 					visited,
 				);
-				// Don't set hasCondition — recursive call might not add anything
+
+				// Don't set hasCondition -- recursive call might not add anything
+			} else if (['text', 'string'].includes(field.type)) {
+				this.orWhereRaw(`LOWER(??) LIKE ?`, [`${relatedCollection}.${name}`, `%${searchQuery.toLowerCase()}%`]);
+				hasCondition = true;
+			} else if (field.type === 'uuid') {
+				// Only match exact UUIDs (non-relational uuid fields like user_created)
+				const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+				if (uuidRegex.test(searchQuery)) {
+					this.orWhere({ [`${relatedCollection}.${name}`]: searchQuery });
+					hasCondition = true;
+				}
 			}
 		}
 
