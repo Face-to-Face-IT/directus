@@ -391,10 +391,9 @@ const livePreviewSize = computed({
 
 provide('live-preview-active', livePreviewActive);
 
-const { visualEditingEnabled, visualEditorUrls, visualModuleEnabled } = useVisualEditing({
+const { visualEditingEnabled, visualModuleEnabled } = useVisualEditing({
 	previewUrl,
 	isNew,
-	currentVersion,
 });
 
 watch(previewUrl, (url) => {
@@ -819,7 +818,7 @@ function useItemNavigation() {
 				:loading="saving"
 				:disabled="!isSavable"
 				small
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			>
 				<VIcon name="check" small />
 
@@ -827,7 +826,7 @@ function useItemNavigation() {
 					<SaveOptions
 						v-if="collectionInfo.meta && collectionInfo.meta.singleton !== true && isSavable === true"
 						:disabled-options="disabledOptions"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-and-add-new="saveAndAddNew"
 						@save-as-copy="saveAsCopyAndNavigate"
 						@discard-and-stay="discardAndStay"
@@ -919,8 +918,8 @@ function useItemNavigation() {
 				<LivePreview
 					v-if="livePreviewActive && previewUrl"
 					:url="previewUrl"
+					:version="currentVersion"
 					:can-enable-visual-editing="visualEditingEnabled"
-					:visual-editor-urls="visualEditorUrls"
 					:show-open-in-visual-editor="visualModuleEnabled"
 					:is-full-width="livePreviewFullWidth"
 					@new-window="livePreviewMode = 'popup'"
@@ -1035,12 +1034,6 @@ function useItemNavigation() {
 
 :deep(.type-title) {
 	min-inline-size: 0;
-
-	.render-template {
-		img {
-			block-size: 20px;
-		}
-	}
 }
 
 .headline-wrapper {

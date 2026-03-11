@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { useElementSize } from '@directus/composables';
-import { ContentVersion, Field, ValidationError } from '@directus/types';
+import { Field, ValidationError } from '@directus/types';
 import { assign, cloneDeep, isEmpty, isEqual, isNil, omit } from 'lodash';
 import { computed, onBeforeUpdate, provide, ref, watch } from 'vue';
 import VDivider from '../v-divider.vue';
@@ -12,10 +12,12 @@ import ValidationErrors from './components/validation-errors.vue';
 import { useAiTools } from './composables/use-ai-tools';
 import { type ComparisonContext, type FieldValues, type FormField as TFormField } from './types';
 import { getFormFields } from './utils/get-form-fields';
+import { selectiveClone } from './utils/selective-clone';
 import { updateFieldWidths } from './utils/update-field-widths';
 import { updateSystemDivider } from './utils/update-system-divider';
 import { CollabContext } from '@/composables/use-collab';
 import { useFieldsStore } from '@/stores/fields';
+import type { ContentVersionMaybeNew } from '@/types/versions';
 import { applyConditions } from '@/utils/apply-conditions';
 import { extractFieldFromFunction } from '@/utils/extract-field-from-function';
 import { getDefaultValuesFromFields } from '@/utils/get-default-values-from-fields';
@@ -45,7 +47,7 @@ const props = withDefaults(
 		direction?: string;
 		showDivider?: boolean;
 		inline?: boolean;
-		version?: ContentVersion | null;
+		version?: ContentVersionMaybeNew | null;
 		comparison?: ComparisonContext;
 		collabContext?: CollabContext;
 	}>(),
@@ -67,8 +69,30 @@ const props = withDefaults(
 
 const emit = defineEmits(['update:modelValue']);
 
+const fieldsStore = useFieldsStore();
+
+const fieldDefinitions = computed<Field[]>(() => {
+	if (props.collection) {
+		return fieldsStore.getFieldsForCollection(props.collection);
+	}
+
+	if (props.fields) {
+		return props.fields;
+	}
+
+	return [];
+});
+
+const fieldDefinitionsMap = computed<Record<string, Field | undefined>>(() => {
+	return Object.fromEntries(fieldDefinitions.value.map((field) => [field.field, field]));
+});
+
 const values = computed(() => {
-	return Object.assign({}, cloneDeep(props.initialValues), cloneDeep(props.modelValue));
+	return Object.assign(
+		{},
+		selectiveClone(props.initialValues, fieldDefinitionsMap.value),
+		selectiveClone(props.modelValue, fieldDefinitionsMap.value),
+	);
 });
 
 const el = ref<Element>();
@@ -275,7 +299,7 @@ function setValue(fieldKey: string, value: any, opts?: { force?: boolean }) {
 
 	if (opts?.force !== true && (!field || isDisabled(field))) return;
 
-	const edits = props.modelValue ? cloneDeep(props.modelValue) : {};
+	const edits = props.modelValue ? selectiveClone(props.modelValue, fieldDefinitionsMap.value) : {};
 	edits[fieldKey] = value;
 	emit('update:modelValue', edits);
 }

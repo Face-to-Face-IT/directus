@@ -55,6 +55,8 @@ TODO
 # AI
 .claude/*
 !.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/hooks/
 !.claude/skills/
 
 # Packer

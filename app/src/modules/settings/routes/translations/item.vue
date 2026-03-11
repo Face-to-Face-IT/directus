@@ -258,13 +258,13 @@ async function revert(values: Record<string, any>) {
 				:loading="saving"
 				:disabled="!isSavable"
 				icon="check"
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			>
 				<template #append-outer>
 					<SaveOptions
 						v-if="hasEdits"
 						:disabled-options="disabledOptions"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-and-add-new="saveAndAddNew"
 						@save-as-copy="saveAsCopyAndNavigate"
 						@discard-and-stay="discardAndStay"
