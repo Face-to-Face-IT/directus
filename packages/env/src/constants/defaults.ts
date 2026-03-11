@@ -207,4 +207,5 @@ export const DEFAULTS = {
 	MCP_ENABLED: true,
 
 	AI_ENABLED: true,
+	RELATIONAL_SEARCH_MAX_DEPTH: 0,
 } as const;
