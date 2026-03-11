@@ -347,13 +347,13 @@ function revert(values: Record<string, any>) {
 				:loading="saving"
 				:disabled="!isSavable"
 				icon="check"
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			>
 				<template #append-outer>
 					<SaveOptions
 						v-if="isSavable"
 						:disabled-options="createAllowed ? ['save-and-add-new'] : ['save-and-add-new', 'save-as-copy']"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-as-copy="saveAsCopyAndNavigate"
 						@discard-and-stay="discardAndStay"
 					/>

@@ -116,7 +116,7 @@ function discardAndLeave() {
 				:loading="saving"
 				:disabled="hasEdits === false"
 				icon="check"
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			/>
 		</template>
 
