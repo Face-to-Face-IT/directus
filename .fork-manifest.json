@@ -43,6 +43,11 @@
       "description": "External MCP server support",
       "merge_to_custom": true
     }
+    },
+    {
+      "branch": "feature/save-and-stay-default",
+      "description": "Make save-and-stay the default save button behavior",
+      "merge_to_custom": true
   ],
   "releases": [
     {
