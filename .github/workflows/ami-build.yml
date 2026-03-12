@@ -62,7 +62,7 @@ jobs:
   # =============================================================================
   check:
     name: Check Build Requirements
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
       version: ${{ steps.version.outputs.version }}
@@ -115,7 +115,7 @@ jobs:
   # =============================================================================
   build:
     name: Build AMI
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: check
     if: needs.check.outputs.should_build == 'true'
 
@@ -262,7 +262,7 @@ jobs:
   # =============================================================================
   cleanup:
     name: Cleanup Old AMIs
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs: build
     if: github.event_name == 'schedule' # Only on scheduled runs
 

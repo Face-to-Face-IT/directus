@@ -150,14 +150,14 @@ function discardAndStay() {
 				</VCard>
 			</VDialog>
 
-			<VButton rounded icon :tooltip="$t('save')" :loading="saving" :disabled="!hasEdits" small @click="saveAndQuit">
+			<VButton rounded icon :tooltip="$t('save')" :loading="saving" :disabled="!hasEdits" small @click="saveAndStay">
 				<VIcon name="check" small />
 
 				<template #append-outer>
 					<SaveOptions
 						v-if="hasEdits"
 						:disabled-options="['save-as-copy']"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-and-add-new="saveAndAddNew"
 						@discard-and-stay="discardAndStay"
 					/>

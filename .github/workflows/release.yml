@@ -2,8 +2,27 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v[0-9]*'
+    branches:
+      - custom
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.changeset/**'
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Create a release build (auto-increments build number from manifest)'
+        required: false
+        type: boolean
+        default: false
+      platforms:
+        description: 'Platforms to build'
+        required: false
+        type: choice
+        default: 'linux/amd64,linux/arm64'
+        options:
+          - 'linux/amd64'
+          - 'linux/amd64,linux/arm64'
 
 permissions:
   contents: write
@@ -12,99 +31,103 @@ permissions:
   id-token: write
 
 env:
-  GHCR_IMAGE: ghcr.io/${{ github.repository }}
-  DOCKERHUB_IMAGE: docker.io/${{ github.repository }}
-  COSIGN_REPOSITORY: docker.io/${{ github.repository }}-signatures
+  GHCR_IMAGE: ghcr.io/face-to-face-it/directus
+  # Leave empty to skip Docker Hub
+  DOCKERHUB_IMAGE: ''
 
 jobs:
-  check-npm-packages:
-    name: Check NPM Packages
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Check if packages exist on NPM
-        uses: directus/npm-package-existence-checker@v1
-
-  check-version:
-    name: Check Version
-    runs-on: ubuntu-latest
-    needs: check-npm-packages
+  prepare:
+    name: Prepare Build Info
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     outputs:
-      prerelease: ${{ steps.version.outputs.prerelease && true || false }}
+      upstream_version: ${{ steps.manifest.outputs.upstream_version }}
+      fork_version: ${{ steps.version.outputs.fork_version }}
+      is_release: ${{ steps.version.outputs.is_release }}
+      docker_tags: ${{ steps.tags.outputs.docker_tags }}
     steps:
-      - name: Check version
-        uses: madhead/semver-utils@v4
-        id: version
-        with:
-          version: ${{ github.ref_name }}
-          lenient: false
-
-  publish-npm:
-    name: Publish to NPM
-    runs-on: ubuntu-latest
-    needs: check-version
-    permissions:
-      actions: write
-      attestations: write
-      checks: write
-      contents: write
-      deployments: write
-      discussions: write
-      id-token: write
-      issues: write
-      models: read
-      packages: write
-      pages: write
-      pull-requests: write
-      security-events: write
-      statuses: write
-    steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Prepare
-        uses: ./.github/actions/prepare
         with:
-          registry: https://registry.npmjs.org
+          ref: custom
 
-      - name: Publish packages to NPM
-        env:
-          NPM_CONFIG_PROVENANCE: true
+      - name: Read fork manifest
+        id: manifest
         run: |
-          pnpm --recursive publish \
-            --access=public \
-            --no-git-checks \
-            --tag ${{ needs.check-version.outputs.prerelease == 'true' && 'canary'  || 'latest' }}
+          UPSTREAM_VERSION=$(jq -r '.upstream_base' .fork-manifest.json | sed 's/^v//')
+          echo "upstream_version=$UPSTREAM_VERSION" >> $GITHUB_OUTPUT
+          echo "Upstream version: $UPSTREAM_VERSION"
+
+      - name: Determine version
+        id: version
+        run: |
+          IS_RELEASE="${{ inputs.release == true && 'true' || 'false' }}"
+
+          if [ "$IS_RELEASE" == "true" ]; then
+            UPSTREAM="${{ steps.manifest.outputs.upstream_version }}"
+
+            # Find the highest existing build number for this upstream version
+            LAST_BUILD=$(jq -r --arg base "$UPSTREAM" '
+              [.releases[]
+                | select(.upstream_base == $base)
+                | .tag
+                | capture("-f2f\\.(?<n>[0-9]+)$")
+                | .n | tonumber
+              ] | max // 0
+            ' .fork-manifest.json)
+
+            NEXT_BUILD=$((LAST_BUILD + 1))
+            FORK_VERSION="${UPSTREAM}-f2f.${NEXT_BUILD}"
+
+            echo "Last build for ${UPSTREAM}: ${LAST_BUILD}"
+            echo "Next build: ${NEXT_BUILD}"
+          else
+            FORK_VERSION="custom"
+          fi
+
+          echo "fork_version=$FORK_VERSION" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          echo "Fork version: $FORK_VERSION (release: $IS_RELEASE)"
+
+      - name: Generate tags
+        id: tags
+        run: |
+          GHCR="${{ env.GHCR_IMAGE }}"
+          TAGS=""
+
+          if [ "${{ steps.version.outputs.is_release }}" == "true" ]; then
+            VERSION="${{ steps.version.outputs.fork_version }}"
+            UPSTREAM="${{ steps.manifest.outputs.upstream_version }}"
+
+            TAGS="${GHCR}:${VERSION}"
+            TAGS="${TAGS},${GHCR}:${UPSTREAM}-f2f"
+            TAGS="${TAGS},${GHCR}:latest"
+          else
+            SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+            TAGS="${GHCR}:custom"
+            TAGS="${TAGS},${GHCR}:custom-${SHORT_SHA}"
+          fi
+
+          echo "docker_tags=$TAGS" >> $GITHUB_OUTPUT
+          echo "Tags: $TAGS"
 
   build-images:
     name: Build Images
-    needs: check-version
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: linux/amd64
-            runner: ubuntu-latest
+            runner: blacksmith-4vcpu-ubuntu-2404
           - platform: linux/arm64
-            runner: ubuntu-24.04-arm
+            runner: blacksmith-4vcpu-ubuntu-2404-arm
     runs-on: ${{ matrix.runner }}
     permissions:
-      actions: write
-      attestations: write
-      checks: write
-      contents: write
-      deployments: write
-      discussions: write
-      id-token: write
-      issues: write
-      models: read
+      contents: read
       packages: write
-      pages: write
-      pull-requests: write
-      security-events: write
-      statuses: write
+      attestations: write
+      id-token: write
     steps:
       - name: Prepare
         run: |
@@ -113,9 +136,11 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: custom
 
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Cache Docker layers
         uses: actions/cache@v5
@@ -129,34 +154,23 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.DOCKERHUB_IMAGE }}
-            ${{ env.GHCR_IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ needs.check-version.outputs.prerelease == 'false' }}
-            type=raw,value=canary,enable=${{ needs.check-version.outputs.prerelease }}
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: env.DOCKERHUB_IMAGE != ''
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+          images: ${{ env.GHCR_IMAGE }}
+          labels: |
+            org.opencontainers.image.title=Directus (F2F Fork)
+            org.opencontainers.image.description=Face-to-Face IT fork of Directus with custom features
+            org.opencontainers.image.vendor=Face-to-Face IT
+            com.f2f.upstream-version=${{ needs.prepare.outputs.upstream_version }}
+            com.f2f.fork-version=${{ needs.prepare.outputs.fork_version }}
 
       - name: Login to GHCR
         uses: docker/login-action@v3
-        if: env.GHCR_IMAGE != ''
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push by digest
-        uses: docker/build-push-action@v6
+        uses: useblacksmith/build-push-action@v2
         id: build
         with:
           context: .
@@ -164,10 +178,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
-          # prettier-ignore
-          outputs: type=image,"name=${{ env.DOCKERHUB_IMAGE }},${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
+          outputs: type=image,"name=${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
         run: |
@@ -183,35 +194,25 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-      # Temp fix for cache growth:
-      # https://github.com/docker/build-push-action/issues/252
-      # https://github.com/moby/buildkit/issues/1896
+      # Blacksmith handles caching via sticky disks, so local cache
+      # rotation is unnecessary. Keep step as a no-op for reference.
       - name: Move cache
+        if: false
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
   publish-docker-images:
     name: Publish Docker Images
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs:
-      - check-version
+      - prepare
       - build-images
     permissions:
-      actions: write
-      attestations: write
-      checks: write
-      contents: write
-      deployments: write
-      discussions: write
-      id-token: write
-      issues: write
-      models: read
+      contents: read
       packages: write
-      pages: write
-      pull-requests: write
-      security-events: write
-      statuses: write
+      attestations: write
+      id-token: write
     steps:
       - name: Download digests
         uses: actions/download-artifact@v6
@@ -220,103 +221,189 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-        if: env.DOCKERHUB_IMAGE != ''
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Extract metadata for Docker image
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: |
-            ${{ env.DOCKERHUB_IMAGE }}
-            ${{ env.GHCR_IMAGE }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ needs.check-version.outputs.prerelease == 'false' }}
-            type=raw,value=canary,enable=${{ needs.check-version.outputs.prerelease }}
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        if: env.DOCKERHUB_IMAGE != ''
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Setup Blacksmith Builder
+        uses: useblacksmith/setup-docker-builder@v1
 
       - name: Login to GHCR
         uses: docker/login-action@v3
-        if: env.GHCR_IMAGE != ''
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create manifest list and push to Docker Hub
-        id: push-dockerhub
-        if: env.DOCKERHUB_IMAGE != ''
+      - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map(select(startswith("docker.io"))) | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
-            $(printf '${{ env.DOCKERHUB_IMAGE }}@sha256:%s ' *)
+          # Build the -t flags from our computed tags
+          TAG_FLAGS=""
+          IFS=',' read -ra TAGS <<< "${{ needs.prepare.outputs.docker_tags }}"
+          for tag in "${TAGS[@]}"; do
+            TAG_FLAGS="$TAG_FLAGS -t $tag"
+          done
 
-      - name: Create manifest list and push to GHCR
-        if: env.GHCR_IMAGE != ''
-        working-directory: ${{ runner.temp }}/digests
-        run: |
           docker buildx imagetools create \
-            $(jq -cr '.tags | map(select(startswith("ghcr.io"))) | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
+            $TAG_FLAGS \
             $(printf '${{ env.GHCR_IMAGE }}@sha256:%s ' *)
 
-      - name: Get Docker Hub manifest digest
-        id: get-digest
-        if: env.DOCKERHUB_IMAGE != ''
+      - name: Inspect image
         run: |
-          set -euo pipefail
-          DIGEST=$(docker buildx imagetools inspect ${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.version }} --format '{{json .Manifest.Digest}}' | tr -d '"')
-          if [ -z "$DIGEST" ]; then
-            echo "::error::Failed to get manifest digest for ${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.version }}"
-            exit 1
-          fi
-          echo "digest=$DIGEST" >> $GITHUB_OUTPUT
+          IFS=',' read -ra TAGS <<< "${{ needs.prepare.outputs.docker_tags }}"
+          docker buildx imagetools inspect "${TAGS[0]}"
 
-      - name: Sign Docker Hub image with GitHub OIDC Token
-        if: env.DOCKERHUB_IMAGE != ''
+      - name: Generate build summary
         run: |
-          cosign sign --yes --recursive ${{ env.DOCKERHUB_IMAGE }}@${{ steps.get-digest.outputs.digest }}
-
-      - name: Inspect Docker Hub image
-        if: env.DOCKERHUB_IMAGE != ''
-        run: |
-          docker buildx imagetools inspect ${{ env.DOCKERHUB_IMAGE }}:${{ steps.meta.outputs.version }}
-
-      - name: Inspect GHCR image
-        if: env.GHCR_IMAGE != ''
-        run: |
-          docker buildx imagetools inspect ${{ env.GHCR_IMAGE }}:${{ steps.meta.outputs.version }}
+          echo "## Docker Image Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ needs.prepare.outputs.fork_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Upstream Base:** ${{ needs.prepare.outputs.upstream_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release:** ${{ needs.prepare.outputs.is_release }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Tags" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ needs.prepare.outputs.docker_tags }}" | tr ',' '\n' >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
   create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
+    name: Create GitHub Release
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     needs:
-      - check-version
-      - publish-npm
+      - prepare
       - publish-docker-images
+    if: needs.prepare.outputs.is_release == 'true'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: custom
 
       - name: Create release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create \
-            "$GITHUB_REF_NAME" \
-            ${{ needs.check-version.outputs.prerelease == 'true' && '--prerelease' || '' }} \
-            --notes "Directus $GITHUB_REF_NAME"
+          VERSION="${{ needs.prepare.outputs.fork_version }}"
+          UPSTREAM="${{ needs.prepare.outputs.upstream_version }}"
+
+          # Build release notes from manifest features
+          FEATURES=$(jq -r '.features[] | select(.merge_to_custom == true) | "- **\(.branch)**: \(.description)"' .fork-manifest.json)
+
+          NOTES=$(cat <<EOF
+          ## Directus F2F ${VERSION}
+
+          Based on upstream Directus v${UPSTREAM}.
+
+          ### Included Features
+          ${FEATURES}
+
+          ### Docker Image
+          \`\`\`
+          docker pull ${{ env.GHCR_IMAGE }}:${VERSION}
+          \`\`\`
+          EOF
+          )
+
+          gh release create "${VERSION}" \
+            --title "Directus ${VERSION}" \
+            --notes "${NOTES}" \
+            --target custom
+
+  update-manifest:
+    name: Update Manifest
+    needs: [prepare, publish-docker-images]
+    if: needs.prepare.outputs.is_release == 'true'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: custom
+
+      - name: Update manifest with release
+        run: |
+          VERSION="${{ needs.prepare.outputs.fork_version }}"
+          UPSTREAM="${{ needs.prepare.outputs.upstream_version }}"
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Get current features that are merged to custom
+          FEATURES=$(jq -c '[.features[] | select(.merge_to_custom == true) | .branch]' .fork-manifest.json)
+
+          # Add release to manifest
+          jq --arg version "$VERSION" \
+             --arg upstream "$UPSTREAM" \
+             --arg date "$DATE" \
+             --argjson features "$FEATURES" \
+             '.releases = [{"tag": $version, "upstream_base": $upstream, "date": $date, "features": $features}] + .releases' \
+             .fork-manifest.json > tmp.json && mv tmp.json .fork-manifest.json
+
+      - name: Commit manifest update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .fork-manifest.json
+          git commit -m "chore: record release ${{ needs.prepare.outputs.fork_version }}"
+          git push
+
+  sentry-release:
+    name: Sentry Release
+    needs: [prepare, publish-docker-images]
+    if: always() && needs.publish-docker-images.result == 'success'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: custom
+          fetch-depth: 0 # Full history for commit association
+
+      # Remove again once corepack >= 0.31 made it into base image
+      - name: Install corepack
+        run: npm install --global corepack@latest
+
+      - name: Enable corepack
+        run: corepack enable && corepack prepare
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+      - name: Build API (with source maps)
+        run: pnpm --filter @directus/api build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Determine Sentry release version
+        id: sentry
+        run: |
+          FORK_VERSION="${{ needs.prepare.outputs.fork_version }}"
+          SENTRY_VERSION="directus@${FORK_VERSION}"
+          SENTRY_ENV="${{ needs.prepare.outputs.is_release == 'true' && 'production' || 'development' }}"
+
+          echo "version=$SENTRY_VERSION" >> $GITHUB_OUTPUT
+          echo "environment=$SENTRY_ENV" >> $GITHUB_OUTPUT
+          echo "Sentry release: $SENTRY_VERSION (env: $SENTRY_ENV)"
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: face-to-face-it
+        with:
+          version: ${{ steps.sentry.outputs.version }}
+          environment: ${{ steps.sentry.outputs.environment }}
+          projects: directus-backend
+          sourcemaps: ./api/dist
+          set_commits: auto
+
+      - name: Sentry release summary
+        run: |
+          echo "## Sentry Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Release** | \`${{ steps.sentry.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | ${{ steps.sentry.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Source Maps** | Uploaded from \`api/dist\` |" >> $GITHUB_STEP_SUMMARY

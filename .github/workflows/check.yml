@@ -4,10 +4,12 @@ on:
   pull_request:
     branches:
       - main
+      - custom
 
   push:
     branches:
       - main
+      - custom
 
 permissions:
   contents: read
@@ -22,7 +24,7 @@ env:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -41,7 +43,7 @@ jobs:
 
   stylelint:
     name: Stylelint
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -60,7 +62,7 @@ jobs:
 
   format:
     name: Format
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -79,7 +81,7 @@ jobs:
 
   unit:
     name: Unit Tests
-    runs-on: ubuntu-latest
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
@@ -96,17 +98,9 @@ jobs:
         run: pnpm test:coverage --passWithNoTests
 
       - name: Upload coverage to Codecov
-        run: |
-          # Download and install Codecov uploader
-          curl -Os https://cli.codecov.io/latest/linux/codecov
-          chmod +x codecov
-
-          # Find all coverage files and upload them with flags based on folder names
-          find . -name "coverage-final.json" -path "*/coverage/*" | while read -r coverage_file; do
-            # Extract the folder name that contains the coverage directory
-            folder_name=$(echo "$coverage_file" | sed -E 's|.*/(.*)/coverage/.*|\1|')
-            echo "Uploading coverage for $folder_name from $coverage_file"
-
-            # Upload to codecov with folder name as flag
-            ./codecov upload-coverage -f "$coverage_file" -F "$folder_name" -Z --disable-search
-          done
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          flags: unit
+          fail_ci_if_error: false

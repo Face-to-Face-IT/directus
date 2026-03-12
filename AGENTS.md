@@ -1,232 +1,310 @@
 # AGENTS.md
 
-This file provides guidance to AI coding assistants when working with code in this repository.
+This is the **Face-to-Face IT fork** of [Directus](https://github.com/directus/directus). It tracks upstream releases and overlays custom features for the F2F Child Welfare Information System (CWIS).
 
-## Project Overview
+## Fork Identity
 
-Directus is a real-time API and App dashboard for managing SQL database content. This is a pnpm monorepo containing:
+| Key | Value |
+|-----|-------|
+| Upstream | `directus/directus` |
+| Fork | `Face-to-Face-IT/directus` |
+| Docker image | `ghcr.io/face-to-face-it/directus` |
+| Manifest | `.fork-manifest.json` (source of truth for versions, features, releases) |
 
-- **`/api`** - Node.js backend with REST & GraphQL APIs (Express.js, Knex.js)
-- **`/app`** - Vue 3 dashboard application (Vite, Pinia)
-- **`/sdk`** - TypeScript SDK for Directus API clients
-- **`/packages/*`** - 35+ shared packages (types, utils, storage drivers, extensions, etc.)
+## Branching Model
 
-## Requirements
+```
+upstream/main ──► main              (pure mirror, fast-forward only)
+                    │
+                    ├── feature/*    (each branched from main, rebased on main)
+                    │
+                    └──► custom      (main + all feature/* branches merged)
+```
+
+### `main` — Upstream Mirror
+
+- **Always** a fast-forward of `upstream/main`. Never commit F2F changes here.
+- Sync procedure: `git fetch upstream && git checkout main && git merge --ff-only upstream/main && git push origin main`
+- Upstream tags (`v11.15.1`, etc.) live here.
+
+### `feature/*` — Custom Feature Branches
+
+Each custom feature lives on its own branch, **based on `main`**:
+
+| Branch | Description | Upstream PR candidate? |
+|--------|-------------|----------------------|
+| `feature/opentelemetry` | Full OpenTelemetry instrumentation | Yes |
+| `feature/form-context` | `$FORM` context for nested relationships | Yes |
+| `feature/packer` | Image build automation (vSphere/QEMU) | No (F2F-specific) |
+| `feature/ai-file-content-tool` | AI file content text extraction | Yes |
+| `feature/collection-url-params` | URL prefill composable | Yes |
+| `feature/external-mcp-tools` | External MCP server support | Yes |
+| `feature/form-grid-columns` | Third-width form grid columns | Yes |
+| `feature/draft-items` | Draft items (WIP save) | Yes |
+
+**Rules:**
+- Branch from `main`, keep rebased on `main`.
+- Each branch should be a clean, self-contained changeset suitable for an upstream PR.
+- Register the branch in `.fork-manifest.json` under `features[]`.
+- Set `merge_to_custom: true` if it should be included in the `custom` integration branch.
+
+### `custom` — Integration Branch
+
+- Built by merging `main` + all `feature/*` branches where `merge_to_custom: true`.
+- This is the branch that gets built into Docker images and deployed.
+- **Rebuilt from scratch** when syncing to a new upstream version (not rebased).
+- CI builds and pushes dev images on every push to `custom`.
+
+**Rebuild procedure:**
+```bash
+git checkout main
+git pull origin main
+git checkout -B custom main
+for branch in $(jq -r '.features[] | select(.merge_to_custom == true) | .branch' .fork-manifest.json); do
+  git merge --no-ff "origin/$branch" -m "Merge $branch into custom"
+done
+git push origin custom --force-with-lease
+```
+
+## Publishing — Docker Images
+
+There is **one** Docker publishing workflow: `.github/workflows/release.yml`
+
+### Dev Builds (automatic)
+
+**Trigger:** Every push to `custom` branch.
+
+**Tags produced:**
+- `ghcr.io/face-to-face-it/directus:custom` — latest dev build
+- `ghcr.io/face-to-face-it/directus:custom-{sha}` — pinned to commit
+
+### Release Builds (manual dispatch)
+
+**Trigger:** Manual `workflow_dispatch` on `release.yml` with the `release` checkbox checked.
+
+The build number is **auto-incremented**. The workflow reads `.fork-manifest.json`, finds the highest existing build number for the current `upstream_base`, and increments it. No manual version input needed.
+
+Example: if `upstream_base` is `v11.15.1` and the last release was `11.15.1-f2f.2`, the next release will be `11.15.1-f2f.3`.
+
+**Tags produced:**
+- `ghcr.io/face-to-face-it/directus:11.15.1-f2f.3` — exact version
+- `ghcr.io/face-to-face-it/directus:11.15.1-f2f` — floating "latest for this upstream version"
+- `ghcr.io/face-to-face-it/directus:latest` — latest stable
+
+**Post-build:** The workflow commits a release record to `.fork-manifest.json` on the `custom` branch.
+
+### Version Scheme
+
+```
+{upstream_version}-f2f.{build_number}
+```
+
+- `upstream_version` — the Directus release this fork is based on (e.g., `11.15.1`), read from `upstream_base` in `.fork-manifest.json`
+- `build_number` — auto-incremented per upstream base, starting at `1`
+- When the upstream base changes, the build number resets to `1`
+
+Examples: `11.14.1-f2f.1`, `11.15.1-f2f.1`, `11.15.1-f2f.2`
+
+### Release Checklist
+
+1. Ensure `main` is synced with the target upstream version
+2. Rebase all `feature/*` branches onto updated `main`
+3. Rebuild `custom` (merge all features)
+4. Verify CI passes on `custom` (dev build succeeds)
+5. Dispatch `release.yml` with the `release` checkbox checked
+6. Verify the release image — `.fork-manifest.json` is updated automatically
+7. Update downstream references:
+   - Terraform module default (`directus_image_tag` in `terraform-aws-environment-ecs`)
+   - Scalr workspace variables for deployed tenants
+
+## Upstream Sync Procedure
+
+When a new upstream Directus version is released (e.g., `v11.16.0`):
+
+1. **Sync `main`:**
+   ```bash
+   git fetch upstream
+   git checkout main
+   git merge --ff-only upstream/main
+   git push origin main
+   ```
+
+2. **Rebase feature branches:**
+   ```bash
+   for branch in feature/opentelemetry feature/form-context ...; do
+     git checkout "$branch"
+     git rebase main
+     git push origin "$branch" --force-with-lease
+   done
+   ```
+
+3. **Update manifest:**
+   Edit `.fork-manifest.json`: set `upstream_base` to the new version, update `last_sync`.
+
+4. **Rebuild `custom`:** Follow the rebuild procedure above.
+
+5. **Cut a release:** Dispatch `release.yml` with `release_version: "1"`.
+
+## Upstream Contributions
+
+Feature branches based on `main` can be submitted as PRs to `upstream/main`:
+
+1. Ensure the branch is rebased on the latest `main` (which mirrors `upstream/main`).
+2. Open a PR from `Face-to-Face-IT/directus:{branch}` → `directus/directus:main`.
+3. Follow upstream's contribution guidelines (changesets, CLA, code style).
+4. Once merged upstream, the feature branch can be deleted and removed from `.fork-manifest.json` — it will arrive naturally via the next upstream sync.
+
+Changesets are required for upstream PRs but **not** for F2F-only changes on `custom`.
+
+## GitHub Actions Workflows
+
+### F2F Workflows (maintained by us)
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| `release.yml` | Push to `custom` / manual dispatch | Build and publish Docker images to GHCR, create GitHub releases |
+| `check.yml` | Push/PR to `main` or `custom` | Lint, stylelint, format, unit tests + Codecov upload |
+| `blackbox.yml` | Push to `main` (API/test changes) | E2E integration tests against 6 databases |
+| `blackbox-pr.yml` | PR with "Run Blackbox" label | On-demand E2E tests for feature branches |
+| `codeql-analysis.yml` | Daily cron | Security scanning (free, zero maintenance) |
+| `claude.yml` | `@claude` mentions | AI assistant on issues/PRs |
+| `claude-code-review.yml` | PR events | Automated AI code review |
+
+### Inherited Upstream Workflows
+
+These come from upstream merges and are **kept as-is** to avoid merge conflicts on every sync. They either don't trigger on our branches, are harmless, or are useful for upstream contributions:
+
+| Workflow | Trigger | Impact on fork |
+|----------|---------|---------------|
+| `prepare-release.yml` | Manual dispatch | Upstream's changeset/Crowdin/Slack release prep. Ignore it. |
+| `changeset-check.yml` | PRs to `main` | Useful when preparing upstream contribution PRs. |
+| `assign-next-release-milestone.yml` | PR merged to `main` | Assigns milestones. Harmless. |
+| `close-feature-requests.yml` | Discussion created | Redirects to upstream roadmap. Harmless. |
+| `lock-threads.yml` | Daily cron | Locks stale issues/PRs. Harmless. |
+| `stale-issues.yml` | Daily cron | Guarded by `github.repository == 'directus/directus'` — never runs on the fork. |
+| `sync-dockerhub-readme.yml` | Push to `main` (readme changes) | We don't have Docker Hub creds — fails silently. |
+| `cla.yml` | PR events | Upstream CLA bot. Harmless. |
+
+## `.fork-manifest.json`
+
+This file is the **source of truth** for the fork's state. Structure:
+
+```jsonc
+{
+  "upstream_base": "v11.15.1",         // Current upstream version we're based on
+  "upstream_repo": "directus/directus",
+  "last_sync": "2026-02-22T00:00:00Z", // When main was last synced
+  "docker_image": "ghcr.io/face-to-face-it/directus",
+  "branches": {
+    "main": "Synced with upstream, pure mirror",
+    "custom": "main + internal features merged"
+  },
+  "features": [
+    {
+      "branch": "feature/example",
+      "description": "What it does",
+      "merge_to_custom": true           // Include in custom branch builds
+    }
+  ],
+  "releases": [
+    {
+      "tag": "11.15.1-f2f.1",          // Docker image tag
+      "upstream_base": "11.15.1",
+      "date": "2026-02-22T00:00:00Z",
+      "features": ["feature/example"]  // Features included in this release
+    }
+  ]
+}
+```
+
+## Development
+
+### Requirements
 
 - Node.js 22
 - pnpm >=10 <11
 
-## Common Commands
+### Commands
 
 ```bash
-# Install dependencies
-pnpm install
+pnpm install                         # Install dependencies
+pnpm build                           # Build all packages
+pnpm --filter @directus/api build    # Build specific package
 
-# Build all packages
-pnpm build
+cd api && pnpm dev                   # API dev server (:8055)
+cd app && pnpm dev                   # App dev server (:8080)
 
-# Build specific package
-pnpm --filter @directus/api build
+pnpm lint                            # ESLint
+pnpm lint:style                      # Stylelint
+pnpm format                          # Prettier check
 
-# Run development servers (API on :8055, App on :8080)
-cd api && pnpm dev    # API with hot reload
-cd app && pnpm dev    # App with Vite HMR
-
-# Linting and formatting
-pnpm lint             # ESLint
-pnpm lint:style       # Stylelint for CSS/SCSS/Vue
-pnpm format           # Prettier check
-
-# Testing
-pnpm test                           # Run all unit tests
-pnpm --filter @directus/api test    # Test specific package
-cd api && pnpm test:watch           # Watch mode in package
-pnpm test:coverage                  # Coverage report
-
-# Blackbox/E2E tests (requires building first)
-pnpm test:blackbox
-TEST_DB=postgres pnpm test:blackbox  # Against specific database
+pnpm test                            # Unit tests
+pnpm test:blackbox                   # E2E tests (build first)
 ```
 
-## Architecture
+### Code Style
 
-### API (`/api/src`)
+- TypeScript, ES modules
+- Follow existing ESLint/Prettier config
+- Test files: `*.test.ts`, co-located with source
 
-- **`controllers/`** - REST API endpoint handlers (40+ controllers)
-- **`services/`** - Business logic layer
-- **`database/`** - Knex.js database utilities and migrations
-- **`middleware/`** - Express middleware (auth, caching, rate limiting)
-- **`auth/`** - Authentication providers (LDAP, SAML, OAuth, local)
-- **`extensions/`** - Runtime extension loading
-- **`websocket/`** - Real-time WebSocket support
+### Pull Requests
 
-### App (`/app/src`)
+Run `pnpm lint && pnpm lint:style && pnpm format` before creating a PR.
 
-- **`components/`** - 145+ Vue components
-- **`views/`** - Page views
-- **`composables/`** - 53+ Vue composables
-- **`stores/`** - 24 Pinia stores
-- **`interfaces/`** - 45+ field input types
-- **`displays/`** - 21 field display renderers
-- **`layouts/`** - 8 data layout views
-- **`operations/`** - 18 flow operation types
-- **`panels/`** - 14 dashboard panel types
-- **`modules/`** - Feature modules
+For upstream PRs: include a changeset (`pnpm changeset`), follow upstream conventions.
+For F2F-only changes on `custom`: no changeset required.
 
-### Key Shared Packages
+## Parent Product Context
 
-- **`@directus/types`** - Shared TypeScript types
-- **`@directus/utils`** - Shared utilities (node/browser/shared)
-- **`@directus/schema`** - Database schema utilities
-- **`@directus/extensions`** - Extension framework
-- **`@directus/storage`** - Abstract storage interface
-- **`@directus/storage-driver-*`** - Storage backends (S3, Azure, GCS, Local, etc.)
+This repo is part of **Face-to-Face IT**, a Child Welfare Information System (CWIS). For cross-repo context:
 
-## Code Style
+- **Product overview & repo relationships:** `~/code/face2face/README.md`
+- **Architecture diagrams (C4):** `~/code/face2face/docs/architecture/`
 
-- TypeScript for all new code
-- ES modules (`import/export` syntax)
-- Prefer `const` over `let`, avoid `var`
-- Follow existing ESLint and Prettier configurations
-- Test files named `*.test.ts`, placed next to source files
+### This Repo's Role
 
-## Testing Conventions
+The Directus fork is the core application server. It is deployed as a Docker image to ECS Fargate via the `terraform-aws-environment-ecs` module. The image tag (`directus_image_tag`) is set as a Scalr workspace variable on each tenant environment.
 
-```typescript
-import { describe, expect, test, vi } from 'vitest';
+### Downstream Consumers
 
-describe('function name', () => {
-	test('should do something specific', () => {
-		// Test implementation
-	});
-});
-```
+| Consumer | How it uses this repo |
+|----------|----------------------|
+| `terraform-aws-environment-ecs` | `directus_image_tag` variable defaults to latest release |
+| `directus-extensions` | `verify-core-deps.yml` validates compatibility against `.fork-manifest.json` |
+| `directus-sandbox` | Docker Compose references `ghcr.io/face-to-face-it/directus:custom` for dev |
+| `directus-templates` | Schema snapshots must be compatible with the deployed Directus version |
 
-## Database Support
-
-Directus works with multiple SQL databases via Knex.js: PostgreSQL, MySQL, MariaDB, SQLite, MS SQL Server, OracleDB,
-CockroachDB.
-
-## Dependency Management
-
-- Use `workspace:*` for internal package dependencies
-- Use `catalog:` for external dependencies (versions defined in `pnpm-workspace.yaml`)
-- Add new shared dependencies to the catalog first
-
-## Changesets
-
-All code changes require a changeset to document what changed for the release notes.
-
-### Creating a Changeset
-
-```bash
-pnpm changeset
-```
-
-This interactive command will:
-
-1. Ask which packages are affected
-2. Ask whether the change is a major, minor, or patch (see versioning guidance below)
-3. Prompt for a description of the change
-
-### Changeset Description Format
-
-**IMPORTANT**: All changeset descriptions must be written in **past tense**, as they document changes that have already
-been made.
-
-Examples:
-
-- ✅ "Added support for multi-provider AI"
-- ✅ "Fixed race condition in WebSocket connections"
-- ✅ "Replaced deprecated `ldapjs` with `ldapts`"
-- ❌ "Add support for multi-provider AI" (present tense - incorrect)
-- ❌ "Adding support for multi-provider AI" (present continuous - incorrect)
-
-### Versioning Guidelines
-
-Follow semantic versioning:
-
-- **Patch** (`0.0.x`) - Bug fixes, dependency updates, internal improvements that don't affect the public API
-  - Example: "Fixed validation error in date field"
-
-- **Minor** (`0.x.0`) - New features, enhancements to existing features, non-breaking changes
-  - Example: "Added visual editing support to live preview"
-
-- **Major** (`x.0.0`) - Breaking changes that require user action or code updates
-  - Example: "Removed deprecated `GET /items` endpoint"
-
-### Breaking Changes
-
-When introducing a breaking change:
-
-1. Use **major** version bump
-2. In the changeset description, clearly document:
-   - What changed (past tense)
-   - Why it changed (if not obvious)
-   - Migration steps or what users need to update
-
-Example breaking change changeset:
-
-```markdown
----
-'@directus/api': major
 ---
 
-Removed support for Node.js 18. Directus now requires Node.js 20 or higher.
+## Agent Mail — Inter-Agent Communication
 
-**Migration**: Update your Node.js installation to version 20 or higher before upgrading.
-```
+This project uses [mcp_agent_mail](https://github.com/Dicklesworthstone/mcp_agent_mail) for coordination between agents working across the face2face repos.
 
-## Pull Requests
+### On Session Start
 
-### Code Quality Requirements
+1. Call `ensure_project` with this repo's absolute path as `human_key`
+2. Call `register_agent` with `project_key` set to this repo's absolute path, your `program` (e.g. "opencode"), and your `model`
+3. Call `fetch_inbox` to check for messages from other agents
 
-**IMPORTANT**: Before creating a pull request, ensure all linters and formatters pass successfully. This is a mandatory
-requirement for all PRs.
+### During Work
 
-Run these commands to verify code quality:
+- **Check your inbox periodically** — other agents may send you questions or coordination messages. Use `fetch_inbox` every few significant steps.
+- **When you need input from another agent** — use `send_message` to ask. Include a clear subject and specify what you need.
+- **When you receive a message with `ack_required=true`** — call `acknowledge_message` after reading it.
+- **Before editing shared files** — use `file_reservation_paths` to reserve them and avoid conflicts with other agents.
 
-```bash
-pnpm lint         # ESLint - checks JavaScript/TypeScript code
-pnpm lint:style   # Stylelint - checks CSS/SCSS/Vue styles
-pnpm format       # Prettier - checks code formatting
-```
+### Sibling Projects
 
-All three commands must pass with no errors before raising a PR. If any issues are found:
+These repos are part of the same product and agents across them can communicate:
 
-1. Many issues can be auto-fixed:
-   - `pnpm lint --fix` - Auto-fix ESLint issues
-   - `pnpm lint:style --fix` - Auto-fix Stylelint issues
-   - `prettier --cache --write .` - Auto-format with Prettier
+| Repo | Path |
+|------|------|
+| directus-extensions | `/home/d3adb0y/code/face2face/repos/directus-extensions` |
+| directus-sandbox | `/home/d3adb0y/code/face2face/repos/directus-sandbox` |
+| directus-extension-registry | `/home/d3adb0y/code/face2face/repos/directus-extension-registry` |
+| management-app | `/home/d3adb0y/code/face2face/repos/management-app` |
+| directus-templates | `/home/d3adb0y/code/face2face/repos/directus-templates` |
+| terraform | `/home/d3adb0y/code/face2face/repos/terraform` |
 
-2. Review and manually fix any remaining issues that cannot be auto-fixed
-
-### PR Template
-
-When creating a new pull request, always use the PR template located at `.github/pull_request_template.md`. The template
-includes:
-
-- **Scope**: List what changed in the PR
-- **Potential Risks / Drawbacks**: Document any risks or trade-offs
-- **Tested Scenarios**: Describe how the changes were tested
-- **Review Notes / Questions**: Highlight areas needing attention or questions for reviewers
-- **Checklist**: Confirm tests, documentation, and OpenAPI updates
-
-Replace the placeholder "Lorem ipsum" content with actual details about your changes. Always reference the related issue
-at the bottom using `Fixes #<num>` format.
-
-### Handling Change Requests (AI Agents Only)
-
-> **Note**: This section applies only to AI coding agents. Human contributors should push commits directly to their PR
-> branches as usual.
-
-When triggering AI agents to resolve change requests or feedback on a pull request, they must create a **Sub-PR** (a new
-pull request that bases to the original PR branch) to address those changes instead of pushing commits directly to the
-existing PR branch.
-
-#### Why Sub-PRs for AI Agents?
-
-- Allows reviewers to evaluate AI-generated changes in isolation
-- Maintains clear separation between original work and revisions
-- Enables easier rollback if AI-generated fixes introduce issues
-- Provides an additional review checkpoint for AI changes
+To message an agent in a sibling project, you need to know its agent name. Use `fetch_inbox` or the web UI at `http://127.0.0.1:8765/mail` to discover registered agents.

@@ -1,0 +1,5 @@
+{
+	"$schema": "https://docs.renovatebot.com/renovate-schema.json",
+	"enabled": false,
+	"description": "Renovate disabled on the Directus fork. Dependencies are managed by upstream syncs via upstream-sync.yml."
+}

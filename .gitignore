@@ -62,3 +62,7 @@ TODO
 # Packer
 .secrets
 *.log
+
+# Local tooling
+.dmux*
+excalidraw.log

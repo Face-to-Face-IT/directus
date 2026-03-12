@@ -117,6 +117,10 @@ export const DEFAULTS = {
 	TELEMETRY_URL: 'https://telemetry.directus.io',
 	COMPLIANCE_URL: 'https://telemetry.directus.io',
 
+	OPENTELEMETRY_ENABLED: false,
+	OPENTELEMETRY_SERVICE_NAME: 'directus-api',
+	OPENTELEMETRY_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+
 	ASSETS_CACHE_TTL: '30d',
 	ASSETS_TRANSFORM_MAX_CONCURRENT: 25,
 	ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: 6000,
@@ -203,4 +207,5 @@ export const DEFAULTS = {
 	MCP_ENABLED: true,
 
 	AI_ENABLED: true,
+	RELATIONAL_SEARCH_MAX_DEPTH: 0,
 } as const;

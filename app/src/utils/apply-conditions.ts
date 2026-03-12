@@ -1,7 +1,6 @@
-import { Field } from '@directus/types';
+import { ContentVersion, Field } from '@directus/types';
 import { validatePayload } from '@directus/utils';
 import { isArray, mergeWith } from 'lodash';
-import type { ContentVersionMaybeNew } from '@/types/versions';
 import { parseFilter } from '@/utils/parse-filter';
 
 export interface ApplyConditionsOptions {

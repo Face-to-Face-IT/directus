@@ -227,7 +227,6 @@ switch_version: Switch Version
 switch_version_copy: Are you sure you want to switch to the "{version}" version? Unsaved changes will be lost.
 create_version: Create Version
 rename_version: Rename Version
-reserved_version_key: 'The version key "{key}" is reserved and cannot be used.'
 compare_version: Compare Version
 save_version: Save Version
 promote_version: Promote Version
@@ -240,7 +239,6 @@ delete_version_copy: >-
   Are you sure you want to delete the "{version}" version? This action cannot be undone.
 delete_on_apply_copy: >-
   You are about to promote “{version}” to Main. What should happen to “{version}” after promotion?
-content_edited: Content Edited
 reset_bookmark: Reset Bookmark
 update_bookmark: Update Bookmark
 delete_bookmark: Delete Bookmark
@@ -869,7 +867,7 @@ unexpected_error_copy: An unexpected error has occurred. Please try again.
 copy_details: Copy Details
 no_app_access: No App Access
 no_app_access_copy: This user isn't allowed to use the admin app.
-password_reset_sent: If you have an account and it supports password reset, we've sent a secure link to your email
+password_reset_sent: If you have an account, we've sent you a secure link to reset your password
 password_reset_successful: Password successfully reset
 back: Back
 filter: Filter
@@ -1139,11 +1137,13 @@ deployment:
       id: Deployment ID
       started: Started
       author: Author
+      notice:
+        Only deployments triggered from Directus are shown here. Deployments made directly on {provider} will not
+        appear.
       refresh: Refresh
       deploy_preview: Deploy Preview
       empty: No Deployment Runs
       empty_copy: This project has no deployment history yet.
-      external_user: External User
     run:
       title: '{project}: Deployment Details'
       id: Deployment ID
@@ -1157,7 +1157,6 @@ deployment:
       open_deployment: Visit
   no_providers: No Deployment Providers
   no_providers_copy: Configure a deployment provider in the settings to get started.
-  no_providers_copy_nonadmin: No deployment providers are available for your account. Contact an administrator.
   select_provider: Select a Provider
   select_provider_copy: Choose a deployment provider from the sidebar to view your projects.
   no_projects: No Projects
@@ -1177,17 +1176,6 @@ deployment:
   dashboard:
     projects: Projects ({count})
     deployed: Deployed
-    total_projects: 'Total Project: {count} | Total Projects: {count}'
-    active_deployments: 'Active Deployment: {count} | Active Deployments: {count}'
-    failed_builds: 'Failed Build: {count} | Failed Builds: {count}'
-    successful_builds: 'Successful Build: {count} | Successful Builds: {count}'
-    total_deployments: 'Deployment: {count} | Deployments: {count}'
-    average_build_time: 'Avg Build Time: {value}'
-    success_rate: 'Success Rate: {value}%'
-  range:
-    1d: Last 24 Hours
-    7d: Last 7 Days
-    30d: Last 30 Days
 dashboard: Dashboard
 panel: Panel
 panel_options: Panel Options
@@ -1341,6 +1329,7 @@ settings_appearance: Appearance
 settings_ai: AI
 model_context_protocol: Model Context Protocol
 ai_assistant: AI Assistant
+external_mcp_servers: External MCP Servers
 ai_disabled_by_env: AI Assistant features have been disabled via environment variable.
 mcp_disabled_by_env: MCP features have been disabled via environment variable.
 settings_flows: Flows
@@ -1369,7 +1358,7 @@ unsaved_changes_copy_collab:
   You’re editing this item with others. Your changes will remain in the collaborative session for now, but may be lost
   if no one saves them.
 leave_page: Leave Page
-cancel_anyway: Cancel Anyway
+close_drawer: Close Drawer
 discard_changes: Discard Changes
 discard_all_changes: Discard All Changes
 discard_changes_copy: Are you sure you want to discard all the changes made?
@@ -1548,7 +1537,6 @@ fields:
     project_color: Project Color
     project_logo: Project Logo
     default_language: Default Language
-    project_owner: Project Owner
     branding: Branding
     public_foreground: Public Foreground
     public_background: Public Background
@@ -1584,11 +1572,7 @@ fields:
     public_registration_verify_email_note:
       Sends an email to the registering user asking them to click on a verification link before they can sign in.
     visual_editor_urls: Visual Editor URLs
-    report_feature_url: Report Feature URL
-    report_bug_url: Report Bug URL
-    report_error_url: Report Error URL
     collaborative_editing: Collaborative Editing
-    collaborative_editing_enabled: Enable Collaborative Editing
     collaborative_editing_note: WebSockets are required for collaborative editing to work.
     ai_notice:
       'AI Assistant provides an in-app sidebar to converse with an LLM. Once enabled, open the AI sidebar from the
@@ -1643,6 +1627,10 @@ fields:
     ai_provider_options: Provider Options
     ai_provider_options_note: Provider-specific options passed to AI endpoints.
     ai_header_name: Header
+    external_mcp_notice:
+      'Connect to external MCP servers to extend AI Chat with additional tools. External servers provide tools that can
+      be used in AI conversations. <a href="https://directus.io/docs/guides/ai/external-mcp" target="_blank">Learn more
+      about connecting external MCP servers.</a>'
 
   directus_shares:
     name: Name
@@ -1667,7 +1655,6 @@ fields:
     users: Users in Role
     parent: Parent Role
     children: Child Roles
-    policies: Policies
   directus_policies:
     name: Policy Name
     description: Description
@@ -1707,6 +1694,16 @@ field_options:
     basemaps_style: Mapbox Style
     files_divider_title: Files & Thumbnails
     overrides_divider_title: App Overrides
+    mcp_server_id: Server ID
+    mcp_tool_approval: Tool Approval
+    mcp_tool_approval_always: Always Allow
+    mcp_tool_approval_ask: Ask Before Running
+    mcp_tool_approval_disabled: Disabled
+    mcp_server_auth: Authentication
+    mcp_auth_bearer: Bearer Token
+    mcp_auth_basic: Basic Auth
+    mcp_auth_token: Auth Token
+    mcp_auth_token_placeholder: Enter bearer token
   directus_activity:
     login: Login
     logout: Logout
@@ -1847,14 +1844,6 @@ ai:
   prompt_staged: Prompt staged
   items_staged: Items staged
   some_items_staged: '{count} item(s) staged (limit reached)'
-  files_staged: Files staged
-  some_files_staged: '{count} file(s) staged (limit reached)'
-  attach_file_subtitle: Attach existing files
-  upload_file_subtitle: Upload local files
-  file_upload_failed: 'Failed to upload {name}'
-  file_upload_not_supported: File uploads are not supported for this provider
-  unsupported_file_type: Unsupported file type
-  provider_locked_tooltip: Cannot change providers after uploading files. Clear the existing conversation to switch.
   image_preview: Image preview
   item_staged: Item staged
   invalid_collection: Invalid collection
@@ -1873,15 +1862,12 @@ ai:
     disabled: Disabled
   enabled_tools: Enabled Tools
   disabled_tools: Disabled Tools
-  ask_user_submit: Submit
-  ask_user_next: Next
-  ask_user_skip: Skip
-  ask_user_chat_about_this: Chat about this
-  ask_user_type_answer: Type your answer...
-  ask_user_skipped: Skipped
+  external_tools: External Tools
+  loading_external_tools: Loading external tools...
   tool_descriptions:
     items: Create, read, update, and delete content
     files: Search and manage files
+    file-content: Read text content from files (PDF, text, code, etc.)
     folders: Create and organize folders
     flows: Create and update flows
     trigger-flow: Run manually triggered flows
@@ -1891,11 +1877,11 @@ ai:
     fields: Create and configure collection fields
     relations: Set up relationships between collections
 ai_tools:
-  ask_user: Ask User
   update_form_values: Update Form Values
   read_form_values: Read Form Values
   items: Items
   files: Files
+  file-content: File Content
   folders: Folders
   flows: Flows
   trigger-flow: Trigger Flow
@@ -1974,7 +1960,6 @@ no_permissions: No Permissions
 permission_add_collection: Add Collection
 default_label: Default
 delete_label: Delete
-discard_label: Discard
 delete_are_you_sure: >-
   This action is permanent and can not be undone. Are you sure you would like to proceed?
 delete_field_are_you_sure: >-
@@ -2196,10 +2181,6 @@ interfaces:
   file:
     file: File
     description: Select or upload a file
-    allowed_mime_types: Allowed MIME Types
-    mime_types_placeholder: Select or add allowed MIME types...
-    mime_types_note:
-      Note that the global FILES_MIME_TYPE_ALLOW_LIST defined in your env will take precedence over the above selection.
   files:
     files: Files
     description: Select or upload multiple files
