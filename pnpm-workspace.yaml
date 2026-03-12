@@ -97,6 +97,8 @@ catalog:
   '@rollup/plugin-virtual': 3.0.2
   '@rollup/plugin-yaml': 4.1.2
   '@sesamecare-oss/redlock': 1.4.0
+  '@sentry/node': 10.42.0
+  '@sentry/profiling-node': 10.42.0
   '@shopify/semaphore': 3.1.0
   '@sinclair/typebox': 0.34.41
   '@sindresorhus/slugify': 2.2.1
@@ -360,6 +362,7 @@ onlyBuiltDependencies:
   - esbuild
   - isolated-vm
   - oracledb
+  - '@sentry/profiling-node'
   - sharp
   - sqlite3
   - vue-demi

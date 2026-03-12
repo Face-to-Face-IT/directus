@@ -113,6 +113,8 @@
 		"@rollup/plugin-alias": "catalog:",
 		"@rollup/plugin-node-resolve": "catalog:",
 		"@rollup/plugin-virtual": "catalog:",
+		"@sentry/node": "catalog:",
+		"@sentry/profiling-node": "catalog:",
 		"@tus/server": "catalog:",
 		"@tus/utils": "catalog:",
 		"ai": "catalog:",

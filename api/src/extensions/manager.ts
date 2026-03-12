@@ -60,6 +60,7 @@ import { generateApiExtensionsSandboxEntrypoint } from './lib/sandbox/generate-a
 import { instantiateSandboxSdk } from './lib/sandbox/sdk/instantiate.js';
 import { type ExtensionSyncOptions, syncExtensions } from './lib/sync/sync.js';
 import { wrapEmbeds } from './lib/wrap-embeds.js';
+import * as Sentry from '@sentry/node';
 
 // Workaround for https://github.com/rollup/plugins/issues/1329
 const virtual = virtualDefault as unknown as typeof virtualDefault.default;
@@ -843,36 +844,72 @@ export class ExtensionManager {
 
 		const hookRegistrationContext = {
 			filter: <T = unknown>(event: string, handler: FilterHandler<T>) => {
-				emitter.onFilter(event, handler);
+				const wrappedHandler: FilterHandler<T> = (payload, meta, context) => {
+					return Sentry.withScope((scope) => {
+						scope.setTag('extension.name', name);
+						scope.setTag('extension.type', 'hook');
+						scope.setTag('extension.hook_type', 'filter');
+						scope.setTag('extension.event', event);
+						return handler(payload, meta, context);
+					});
+				};
+
+				emitter.onFilter(event, wrappedHandler);
 
 				unregisterFunctions.push(() => {
-					emitter.offFilter(event, handler);
+					emitter.offFilter(event, wrappedHandler);
 				});
 			},
 			action: (event: string, handler: ActionHandler) => {
-				emitter.onAction(event, handler);
+				const wrappedHandler: ActionHandler = (meta, context) => {
+					Sentry.withScope((scope) => {
+						scope.setTag('extension.name', name);
+						scope.setTag('extension.type', 'hook');
+						scope.setTag('extension.hook_type', 'action');
+						scope.setTag('extension.event', event);
+						handler(meta, context);
+					});
+				};
+
+				emitter.onAction(event, wrappedHandler);
 
 				unregisterFunctions.push(() => {
-					emitter.offAction(event, handler);
+					emitter.offAction(event, wrappedHandler);
 				});
 			},
 			init: (event: string, handler: InitHandler) => {
-				emitter.onInit(event, handler);
+				const wrappedHandler: InitHandler = (meta) => {
+					return Sentry.withScope((scope) => {
+						scope.setTag('extension.name', name);
+						scope.setTag('extension.type', 'hook');
+						scope.setTag('extension.hook_type', 'init');
+						scope.setTag('extension.event', event);
+						return handler(meta);
+					});
+				};
+
+				emitter.onInit(event, wrappedHandler);
 
 				unregisterFunctions.push(() => {
-					emitter.offInit(name, handler);
+					emitter.offInit(name, wrappedHandler);
 				});
 			},
 			schedule: (cron: string, handler: ScheduleHandler) => {
 				if (validateCron(cron)) {
 					const job = scheduleSynchronizedJob(`${name}:${scheduleIndex}`, cron, async () => {
 						if (this.options.schedule) {
-							try {
+						try {
+							await Sentry.withScope(async (scope) => {
+								scope.setTag('extension.name', name);
+								scope.setTag('extension.type', 'hook');
+								scope.setTag('extension.hook_type', 'schedule');
+								scope.setTag('extension.event', `schedule:${cron}`);
 								await handler();
-							} catch (error) {
-								logger.error(error);
-							}
+							});
+						} catch (error) {
+							logger.error(error);
 						}
+					}
 					});
 
 					scheduleIndex++;
@@ -934,6 +971,14 @@ export class ExtensionManager {
 		const routeName = typeof config === 'function' ? nameWithoutType : config.id;
 
 		const scopedRouter = express.Router();
+
+		// Tag all requests through this extension endpoint for Sentry attribution
+		scopedRouter.use((_req, _res, next) => {
+			const scope = Sentry.getCurrentScope();
+			scope.setTag('extension.name', name);
+			scope.setTag('extension.type', 'endpoint');
+			next();
+		});
 
 		this.endpointRouter.use(`/${routeName}`, scopedRouter);
 

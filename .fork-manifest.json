@@ -29,8 +29,8 @@
       "merge_to_custom": true
     },
     {
-      "branch": "feature/opentelemetry",
-      "description": "Full OpenTelemetry instrumentation",
+      "branch": "feature/sentry",
+      "description": "Full Sentry observability (backend SDK, frontend CDN embed, profiling, replays, ADOT removal)",
       "merge_to_custom": true
     },
     {

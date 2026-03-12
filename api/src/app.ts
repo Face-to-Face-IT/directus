@@ -11,6 +11,7 @@ import type { Request, RequestHandler, Response } from 'express';
 import express from 'express';
 import { merge } from 'lodash-es';
 import qs from 'qs';
+import { getSentryFrontendEmbed } from './telemetry/sentry-frontend.js';
 import { aiChatRouter } from './ai/chat/router.js';
 import { aiFilesRouter } from './ai/files/router.js';
 import { registerAuthProviders } from './auth.js';
@@ -61,6 +62,7 @@ import { ensureDeploymentWebhooks, registerDeploymentDrivers } from './deploymen
 import emitter from './emitter.js';
 import { getExtensionManager } from './extensions/index.js';
 import { getFlowManager } from './flows.js';
+import { setupSentryExpressHandler } from './telemetry/sentry.js';
 import { createExpressLogger, useLogger } from './logger/index.js';
 import authenticate from './middleware/authenticate.js';
 import cache from './middleware/cache.js';
@@ -257,7 +259,7 @@ export default async function createApp(): Promise<express.Application> {
 
 		const htmlWithVars = html
 			.replace(/<base \/>/, `<base href="${adminUrl.toString({ rootRelative: true })}/" />`)
-			.replace('<!-- directus-embed-head -->', embeds.head)
+			.replace('<!-- directus-embed-head -->', getSentryFrontendEmbed() + embeds.head)
 			.replace('<!-- directus-embed-body -->', embeds.body);
 
 		const sendHtml = (_req: Request, res: Response) => {
@@ -362,6 +364,8 @@ export default async function createApp(): Promise<express.Application> {
 	await emitter.emitInit('routes.custom.after', { app });
 
 	app.use(notFoundHandler);
+
+	setupSentryExpressHandler(app);
 	app.use(errorHandler);
 
 	await emitter.emitInit('routes.after', { app });
