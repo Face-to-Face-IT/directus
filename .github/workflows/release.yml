@@ -367,7 +367,7 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=8192
 
       - name: Build API (with source maps)
-        run: pnpm --filter @directus/api build
+        run: pnpm --filter @directus/api... build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
