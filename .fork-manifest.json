@@ -56,6 +56,38 @@
   ],
   "releases": [
     {
+      "tag": "11.15.4-f2f.5",
+      "upstream_base": "11.15.4",
+      "date": "2026-03-12T15:06:56Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/sentry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools",
+        "feature/save-and-stay-default",
+        "feature/relational-search"
+      ]
+    },
+    {
+      "tag": "11.15.4-f2f.4",
+      "upstream_base": "11.15.4",
+      "date": "2026-03-11T19:30:16Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/opentelemetry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools",
+        "feature/save-and-stay-default",
+        "feature/relational-search"
+      ]
+    },
+    {
       "tag": "11.15.4-f2f.3",
       "upstream_base": "11.15.4",
       "date": "2026-03-11T17:09:57Z",
