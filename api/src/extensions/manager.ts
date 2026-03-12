@@ -32,6 +32,7 @@ import { pathToRelativeUrl, processId } from '@directus/utils/node';
 import aliasDefault from '@rollup/plugin-alias';
 import nodeResolveDefault from '@rollup/plugin-node-resolve';
 import virtualDefault from '@rollup/plugin-virtual';
+import * as Sentry from '@sentry/node';
 import chokidar, { FSWatcher } from 'chokidar';
 import express, { Router } from 'express';
 import ivm from 'isolated-vm';
@@ -60,7 +61,6 @@ import { generateApiExtensionsSandboxEntrypoint } from './lib/sandbox/generate-a
 import { instantiateSandboxSdk } from './lib/sandbox/sdk/instantiate.js';
 import { type ExtensionSyncOptions, syncExtensions } from './lib/sync/sync.js';
 import { wrapEmbeds } from './lib/wrap-embeds.js';
-import * as Sentry from '@sentry/node';
 
 // Workaround for https://github.com/rollup/plugins/issues/1329
 const virtual = virtualDefault as unknown as typeof virtualDefault.default;
