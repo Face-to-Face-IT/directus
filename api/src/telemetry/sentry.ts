@@ -67,9 +67,9 @@ export async function initSentry() {
 			// Profiling — V8 CpuProfiler via @sentry/profiling-node
 			profileSessionSampleRate,
 			profileLifecycle: 'trace',
-			integrations: [nodeProfilingIntegration()],
+			integrations: [nodeProfilingIntegration(), Sentry.pinoIntegration()],
 
-			// Logs — captures Sentry.logger.* calls, links to active traces
+			// Logs — captures pino logger calls as Sentry structured logs
 			enableLogs,
 
 			// Sentry manages OpenTelemetry instrumentation internally —
