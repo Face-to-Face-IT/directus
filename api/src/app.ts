@@ -273,9 +273,14 @@ export default async function createApp(): Promise<express.Application> {
 			res.send(htmlWithVars);
 		};
 
-		const setStaticHeaders = (res: ServerResponse) => {
+		const setStaticHeaders = (res: ServerResponse, filePath: string) => {
 			res.setHeader('Cache-Control', 'max-age=31536000, immutable');
 			res.setHeader('Vary', 'Origin, Cache-Control');
+
+			// Allow sentry.io to load fonts/CSS for Session Replay rendering fidelity
+			if (/\.(woff2?|ttf|otf|eot|css)$/.test(filePath)) {
+				res.setHeader('Access-Control-Allow-Origin', '*');
+			}
 		};
 
 		app.get('/admin', sendHtml);
