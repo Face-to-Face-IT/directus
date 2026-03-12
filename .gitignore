@@ -58,3 +58,7 @@ TODO
 !.claude/settings.json
 !.claude/hooks/
 !.claude/skills/
+
+# Packer
+.secrets
+*.log
