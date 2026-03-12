@@ -28,7 +28,7 @@ const contextStack = reactive<FormContextEntry[]>([]);
  */
 export function pushFormContext(values: FieldValues): symbol {
 	const id = Symbol('form-context');
-	contextStack.push({ id, values });
+	contextStack.push({ id, values: { ...values } });
 	return id;
 }
 
@@ -49,7 +49,11 @@ export function popFormContext(id: symbol): void {
 export function updateFormContext(id: symbol, values: FieldValues): void {
 	const entry = contextStack.find((e) => e.id === id);
 	if (entry) {
-		entry.values = values;
+		// Shallow-clone to break reactivity chain between the parent form's
+		// values ref and the context stack. Without this, the deep watcher on
+		// the parent values ref and the reactive contextStack create an infinite
+		// update loop when a nested drawer is open.
+		entry.values = { ...values };
 	}
 }
 
