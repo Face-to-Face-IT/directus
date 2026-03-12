@@ -168,7 +168,12 @@ export default async function createApp(): Promise<express.Application> {
 					useDefaults: true,
 					directives: {
 						// Unsafe-eval is required for app extensions
-						scriptSrc: ["'self'", "'unsafe-eval'"],
+						scriptSrc: [
+							"'self'",
+							"'unsafe-eval'",
+							// Sentry frontend CDN — only needed when SENTRY_FRONTEND_DSN is set
+							...(process.env['SENTRY_FRONTEND_DSN'] ? ["'unsafe-inline'", 'https://browser.sentry-cdn.com'] : []),
+						],
 
 						// Even though this is recommended to have enabled, it breaks most local
 						// installations. Making this opt-in rather than opt-out is a little more
