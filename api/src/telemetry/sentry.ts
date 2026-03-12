@@ -97,7 +97,7 @@ export async function initSentry() {
 		].filter(Boolean);
 
 		// eslint-disable-next-line no-console -- logger unavailable (circular dep), Sentry must init before logger
-		console.log(`[Sentry] Initialized (env=${environment}, traces=${tracesSampleRate}, features=${features.join(',')})` );
+		console.log(`[Sentry] Initialized (env=${environment}, traces=${tracesSampleRate}, features=${features.join(',')})`);
 	} catch (error) {
 		// eslint-disable-next-line no-console -- logger unavailable (circular dep), Sentry must init before logger
 		console.error('[Sentry] Error initializing:', error);

@@ -891,25 +891,25 @@ export class ExtensionManager {
 				emitter.onInit(event, wrappedHandler);
 
 				unregisterFunctions.push(() => {
-					emitter.offInit(name, wrappedHandler);
+					emitter.offInit(event, wrappedHandler);
 				});
 			},
 			schedule: (cron: string, handler: ScheduleHandler) => {
 				if (validateCron(cron)) {
 					const job = scheduleSynchronizedJob(`${name}:${scheduleIndex}`, cron, async () => {
 						if (this.options.schedule) {
-						try {
-							await Sentry.withScope(async (scope) => {
-								scope.setTag('extension.name', name);
-								scope.setTag('extension.type', 'hook');
-								scope.setTag('extension.hook_type', 'schedule');
-								scope.setTag('extension.event', `schedule:${cron}`);
-								await handler();
-							});
-						} catch (error) {
-							logger.error(error);
+							try {
+								await Sentry.withScope(async (scope) => {
+									scope.setTag('extension.name', name);
+									scope.setTag('extension.type', 'hook');
+									scope.setTag('extension.hook_type', 'schedule');
+									scope.setTag('extension.event', `schedule:${cron}`);
+									await handler();
+								});
+							} catch (error) {
+								logger.error(error);
+							}
 						}
-					}
 					});
 
 					scheduleIndex++;

@@ -48,9 +48,9 @@ export function getSentryFrontendEmbed(): string {
 		></script>
 		<script>
 			Sentry.init({
-				dsn: "${dsn}",
-				environment: "${environment}",
-				${release ? `release: "${release}",` : ''}
+				dsn: ${JSON.stringify(dsn)},
+				environment: ${JSON.stringify(environment)},
+				${release ? `release: ${JSON.stringify(release)},` : ''}
 				integrations: [
 					Sentry.browserTracingIntegration(),
 					Sentry.replayIntegration({
@@ -70,8 +70,8 @@ export function getSentryFrontendEmbed(): string {
 				replaysOnErrorSampleRate: ${replaysOnErrorSampleRate},
 				enableLogs: ${enableLogs},
 			});
-			${tenantName ? `Sentry.setTag("tenant_name", "${tenantName}");` : ''}
-			${environmentName ? `Sentry.setTag("f2f_environment", "${environmentName}");` : ''}
+			${tenantName ? `Sentry.setTag("tenant_name", ${JSON.stringify(tenantName)});` : ''}
+			${environmentName ? `Sentry.setTag("f2f_environment", ${JSON.stringify(environmentName)});` : ''}
 		</script>
 	`;
 }

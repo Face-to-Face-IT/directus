@@ -270,6 +270,9 @@ catalogs:
     '@sentry/node':
       specifier: 10.42.0
       version: 10.42.0
+    '@sentry/profiling-node':
+      specifier: 10.42.0
+      version: 10.42.0
     '@sesamecare-oss/redlock':
       specifier: 1.4.0
       version: 1.4.0
@@ -1219,6 +1222,9 @@ importers:
         specifier: 'catalog:'
         version: 3.0.2(rollup@4.59.0)
       '@sentry/node':
+        specifier: 'catalog:'
+        version: 10.42.0
+      '@sentry/profiling-node':
         specifier: 'catalog:'
         version: 10.42.0
       '@tus/server':
@@ -7620,6 +7626,10 @@ packages:
   '@selderee/plugin-htmlparser2@0.11.0':
     resolution: {integrity: sha512-P33hHGdldxGabLFjPPpaTxVolMrzrcegejx+0GxjrIb9Zv48D8yAIA/QTDR2dFl7Uz7urX8aX6+5bCZslr+gWQ==}
 
+  '@sentry-internal/node-cpu-profiler@2.2.0':
+    resolution: {integrity: sha512-oLHVYurqZfADPh5hvmQYS5qx8t0UZzT2u6+/68VXsFruQEOnYJTODKgU3BVLmemRs3WE6kCJjPeFdHVYOQGSzQ==}
+    engines: {node: '>=18'}
+
   '@sentry/core@10.42.0':
     resolution: {integrity: sha512-L4rMrXMqUKBanpjpMT+TuAVk6xAijz6AWM6RiEYpohAr7SGcCEc1/T0+Ep1eLV8+pwWacfU27OvELIyNeOnGzA==}
     engines: {node: '>=18'}
@@ -7664,6 +7674,11 @@ packages:
       '@opentelemetry/core': ^1.30.1 || ^2.1.0
       '@opentelemetry/sdk-trace-base': ^1.30.1 || ^2.1.0
       '@opentelemetry/semantic-conventions': ^1.39.0
+
+  '@sentry/profiling-node@10.42.0':
+    resolution: {integrity: sha512-HmQn5rLBdAigxMpliasGV2WclDotO64XWJqOXbK5aoNg4rdqzi1BrB9O1wVN2/TDOswnz579X8d6lzTD0g1u6w==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@sesamecare-oss/redlock@1.4.0':
     resolution: {integrity: sha512-2z589R+yxKLN4CgKxP1oN4dsg6Y548SE4bVYam/R0kHk7Q9VrQ9l66q+k1ehhSLLY4or9hcchuF9/MhuuZdjJg==}
@@ -21432,6 +21447,11 @@ snapshots:
       domhandler: 5.0.3
       selderee: 0.11.0
 
+  '@sentry-internal/node-cpu-profiler@2.2.0':
+    dependencies:
+      detect-libc: 2.1.2
+      node-abi: 3.78.0
+
   '@sentry/core@10.42.0': {}
 
   '@sentry/node-core@10.42.0(@opentelemetry/api@1.9.0)(@opentelemetry/context-async-hooks@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/core@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.211.0(@opentelemetry/api@1.9.0))(@opentelemetry/resources@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@2.6.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.40.0)':
@@ -21496,6 +21516,14 @@ snapshots:
       '@opentelemetry/sdk-trace-base': 2.6.0(@opentelemetry/api@1.9.0)
       '@opentelemetry/semantic-conventions': 1.40.0
       '@sentry/core': 10.42.0
+
+  '@sentry/profiling-node@10.42.0':
+    dependencies:
+      '@sentry-internal/node-cpu-profiler': 2.2.0
+      '@sentry/core': 10.42.0
+      '@sentry/node': 10.42.0
+    transitivePeerDependencies:
+      - supports-color
 
   '@sesamecare-oss/redlock@1.4.0(ioredis@5.8.2)':
     dependencies:

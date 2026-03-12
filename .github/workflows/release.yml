@@ -394,7 +394,7 @@ jobs:
         with:
           version: ${{ steps.sentry.outputs.version }}
           environment: ${{ steps.sentry.outputs.environment }}
-          projects: directus-backend directus-frontend
+          projects: directus-backend
           sourcemaps: ./api/dist
           set_commits: auto
 
