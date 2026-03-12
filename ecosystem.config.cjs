@@ -5,7 +5,14 @@
  * Attributes down below are in order of the above linked documentation
  */
 
-const otelEnabled = process.env.OPENTELEMETRY_ENABLED === 'true' || process.env.OPENTELEMETRY_ENABLED === '1';
+const sentryEnabled = !!process.env.SENTRY_DSN;
+
+// Build --import flags for pre-loader modules.
+// Sentry must be loaded before any application modules so that its built-in
+// OpenTelemetry instrumentation can monkey-patch http, express, database drivers, etc.
+const importFlags = [
+	...(sentryEnabled ? ['--import', '@directus/api/telemetry/sentry-init'] : []),
+];
 
 module.exports = [
 	{
@@ -14,10 +21,8 @@ module.exports = [
 		script: 'cli.js',
 		args: ['start'],
 
-		// OpenTelemetry must be loaded before any application modules so that
-		// auto-instrumentation can monkey-patch http, express, database drivers, etc.
-		// The --import flag runs the loader module before the application entry point.
-		...(otelEnabled && { node_args: ['--import', '@directus/api/telemetry/init'] }),
+		// The --import flag runs loader modules before the application entry point.
+		...(importFlags.length > 0 && { node_args: importFlags }),
 
 		// General
 		instances: process.env.PM2_INSTANCES ?? 1,

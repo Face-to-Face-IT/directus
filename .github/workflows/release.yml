@@ -343,3 +343,67 @@ jobs:
           git add .fork-manifest.json
           git commit -m "chore: record release ${{ needs.prepare.outputs.fork_version }}"
           git push
+
+  sentry-release:
+    name: Sentry Release
+    needs: [prepare, publish-docker-images]
+    if: always() && needs.publish-docker-images.result == 'success'
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: custom
+          fetch-depth: 0 # Full history for commit association
+
+      # Remove again once corepack >= 0.31 made it into base image
+      - name: Install corepack
+        run: npm install --global corepack@latest
+
+      - name: Enable corepack
+        run: corepack enable && corepack prepare
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        env:
+          NODE_OPTIONS: --max-old-space-size=8192
+
+      - name: Build API (with source maps)
+        run: pnpm --filter @directus/api build
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+
+      - name: Determine Sentry release version
+        id: sentry
+        run: |
+          FORK_VERSION="${{ needs.prepare.outputs.fork_version }}"
+          SENTRY_VERSION="directus@${FORK_VERSION}"
+          SENTRY_ENV="${{ needs.prepare.outputs.is_release == 'true' && 'production' || 'development' }}"
+
+          echo "version=$SENTRY_VERSION" >> $GITHUB_OUTPUT
+          echo "environment=$SENTRY_ENV" >> $GITHUB_OUTPUT
+          echo "Sentry release: $SENTRY_VERSION (env: $SENTRY_ENV)"
+
+      - name: Create Sentry release
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: face-to-face-it
+        with:
+          version: ${{ steps.sentry.outputs.version }}
+          environment: ${{ steps.sentry.outputs.environment }}
+          projects: directus-backend
+          sourcemaps: ./api/dist
+          set_commits: auto
+
+      - name: Sentry release summary
+        run: |
+          echo "## Sentry Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Release** | \`${{ steps.sentry.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | ${{ steps.sentry.outputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Source Maps** | Uploaded from \`api/dist\` |" >> $GITHUB_STEP_SUMMARY
