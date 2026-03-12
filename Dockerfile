@@ -26,13 +26,21 @@ USER node
 ENV NODE_OPTIONS=--max-old-space-size=8192
 
 COPY pnpm-lock.yaml .
-RUN pnpm fetch
+RUN --mount=type=cache,id=pnpm-store,target=/home/node/.local/share/pnpm/store,uid=1000,gid=1000 \
+    pnpm fetch
 
 COPY --chown=node:node . .
+
+# Install dependencies (separate layer from build for caching)
+RUN --mount=type=cache,id=pnpm-store,target=/home/node/.local/share/pnpm/store,uid=1000,gid=1000 \
+    pnpm install --recursive --offline --frozen-lockfile
+
+# Build all packages (concurrency=4 requires 8-vCPU CI runners)
+RUN npm_config_workspace_concurrency=4 pnpm run build
+
+# Deploy production bundle
 RUN <<EOF
 	set -ex
-	pnpm install --recursive --offline --frozen-lockfile
-	npm_config_workspace_concurrency=2 pnpm run build
 	pnpm --filter directus deploy --legacy --prod dist
 	cd dist
 	# Regenerate package.json file with essential fields only
