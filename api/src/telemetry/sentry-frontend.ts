@@ -46,6 +46,10 @@ export function getSentryFrontendEmbed(): string {
 			src="${cdnBase}/browserprofiling.min.js"
 			crossorigin="anonymous"
 		></script>
+		<script
+			src="${cdnBase}/replay-canvas.min.js"
+			crossorigin="anonymous"
+		></script>
 		<script>
 			Sentry.init({
 				dsn: ${JSON.stringify(dsn)},
@@ -58,6 +62,7 @@ export function getSentryFrontendEmbed(): string {
 						maskAllInputs: true,
 						blockAllMedia: false,
 					}),
+					Sentry.replayCanvasIntegration(),
 					Sentry.browserProfilingIntegration(),
 					Sentry.feedbackIntegration({
 						colorScheme: "system",
