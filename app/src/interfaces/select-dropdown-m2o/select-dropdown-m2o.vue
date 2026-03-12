@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { Filter } from '@directus/types';
 import { deepMap, getFieldsFromTemplate } from '@directus/utils';
 import { get } from 'lodash';
@@ -53,9 +54,15 @@ const emit = defineEmits(['input']);
 
 const values = inject('values', ref<Record<string, any>>({}));
 
+// Get parent form values from the global context stack
+// This allows filters like: { "field": { "_eq": "$FORM.parentField" } }
+const parentFormValues = useParentFormContext();
+
 const collectionsStore = useCollectionsStore();
 
 const customFilter = computed(() => {
+	// First resolve {{fieldName}} mustache variables against current form values
+	// Then parse $FORM and $CURRENT_* dynamic variables
 	return parseFilter(
 		deepMap(props.filter, (val: any) => {
 			if (val && typeof val === 'string') {
@@ -64,6 +71,9 @@ const customFilter = computed(() => {
 
 			return val;
 		}),
+		{
+			$FORM: parentFormValues.value,
+		},
 	);
 });
 
