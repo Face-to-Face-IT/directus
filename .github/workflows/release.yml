@@ -34,6 +34,8 @@ env:
   GHCR_IMAGE: ghcr.io/face-to-face-it/directus
   # Leave empty to skip Docker Hub
   DOCKERHUB_IMAGE: ''
+  # Opt into Node.js 24 for all actions (Node 20 deprecated June 2026)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   prepare:
@@ -172,7 +174,6 @@ jobs:
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: true
-          estargz: true
           outputs: type=image,"name=${{ env.GHCR_IMAGE }}",push-by-digest=true,name-canonical=true,push=true
 
       - name: Export digest
@@ -337,7 +338,7 @@ jobs:
   sentry-release:
     name: Sentry Release
     needs: [prepare, publish-docker-images]
-    if: always() && needs.publish-docker-images.result == 'success'
+    if: needs.prepare.outputs.is_release == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
@@ -347,6 +348,11 @@ jobs:
         with:
           ref: custom
           fetch-depth: 0 # Full history for commit association
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       # Remove again once corepack >= 0.31 made it into base image
       - name: Install corepack
