@@ -18,6 +18,7 @@ WORKDIR /directus
 # Copy workspace manifests first so dependency installation stays cacheable.
 # Keep this list in sync with pnpm-workspace.yaml when packages are added.
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc ./
+COPY --chown=node:node patches/ ./patches/
 COPY --chown=node:node api/package.json ./api/package.json
 COPY --chown=node:node app/package.json ./app/package.json
 COPY --chown=node:node directus/package.json ./directus/package.json
