@@ -79,10 +79,11 @@ COPY --chown=node:node . .
 # Build all packages (concurrency=4 requires 8-vCPU CI runners)
 RUN npm_config_workspace_concurrency=4 pnpm run build
 
-# Deploy production bundle
-RUN <<EOF
+# Deploy production bundle — use the same pnpm store cache mount so reads
+# go through native fs instead of slow overlayfs layer operations.
+RUN --mount=type=cache,id=pnpm-store,target=/home/node/.local/share/pnpm/store,uid=1000,gid=1000 <<EOF
 	set -ex
-	pnpm --filter directus deploy --prod dist
+	pnpm --filter directus deploy --legacy --prod --store-dir /home/node/.local/share/pnpm/store dist
 	cd dist
 	# Regenerate package.json file with essential fields only
 	# (see https://github.com/directus/directus/issues/20338)
