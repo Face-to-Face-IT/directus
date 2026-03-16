@@ -65,7 +65,10 @@ RUN chown node:node .
 USER node
 
 ENV NODE_OPTIONS=--max-old-space-size=8192
-
+# Pin pnpm store to the cache mount path so fetch, install, AND deploy
+# all share the same content-addressable store. Without this, deploy
+# creates its own store and re-downloads everything from npm.
+ENV npm_config_store_dir=/home/node/.local/share/pnpm/store
 RUN --mount=type=cache,id=pnpm-store,target=/home/node/.local/share/pnpm/store,uid=1000,gid=1000 \
     pnpm fetch
 
@@ -79,11 +82,12 @@ COPY --chown=node:node . .
 # Build all packages (concurrency=4 requires 8-vCPU CI runners)
 RUN npm_config_workspace_concurrency=4 pnpm run build
 
-# Deploy production bundle — use the same pnpm store cache mount so reads
-# go through native fs instead of slow overlayfs layer operations.
+# Deploy production bundle — store is shared via env var above, cache mount
+# provides the packages fetched earlier. --prefer-offline prevents fallback
+# to npm registry (the 22-min bottleneck on GHA).
 RUN --mount=type=cache,id=pnpm-store,target=/home/node/.local/share/pnpm/store,uid=1000,gid=1000 <<EOF
 	set -ex
-	pnpm --filter directus deploy --legacy --prod --store-dir /home/node/.local/share/pnpm/store dist
+	pnpm --filter directus deploy --legacy --prod dist
 	cd dist
 	# Regenerate package.json file with essential fields only
 	# (see https://github.com/directus/directus/issues/20338)
