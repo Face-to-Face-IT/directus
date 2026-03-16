@@ -154,6 +154,8 @@ function directusExtensions() {
 						external: [virtualExtensionsId],
 						preserveEntrySignatures: 'exports-only',
 					},
+				},
+			}),
 		},
 	];
 
