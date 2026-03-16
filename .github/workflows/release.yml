@@ -370,8 +370,8 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=8192
 
-      - name: Build API (with source maps)
-        run: pnpm --filter @directus/api build
+      - name: Build API + App (with source maps)
+        run: pnpm --filter @directus/api... build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
@@ -386,7 +386,7 @@ jobs:
           echo "environment=$SENTRY_ENV" >> $GITHUB_OUTPUT
           echo "Sentry release: $SENTRY_VERSION (env: $SENTRY_ENV)"
 
-      - name: Create Sentry release
+      - name: Create Sentry release (backend)
         uses: getsentry/action-release@v3
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
@@ -397,6 +397,21 @@ jobs:
           projects: directus-backend
           sourcemaps: ./api/dist
           set_commits: auto
+          ignore_missing: true
+
+      - name: Create Sentry release (frontend)
+        uses: getsentry/action-release@v3
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: face-to-face-it
+        with:
+          version: ${{ steps.sentry.outputs.version }}
+          environment: ${{ steps.sentry.outputs.environment }}
+          projects: directus-frontend
+          sourcemaps: ./app/dist/assets
+          url_prefix: ~/admin/assets
+          set_commits: auto
+          ignore_missing: true
 
       - name: Sentry release summary
         run: |

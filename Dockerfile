@@ -91,6 +91,9 @@ RUN <<EOF
 		fs.writeFileSync(f, JSON.stringify({name, version, type, exports, bin, packageManager}, null, 2));
 	'
 	mkdir -p database extensions uploads
+	# Strip source maps — they are uploaded to Sentry during CI,
+	# but must not be served to browsers or shipped in the image.
+	find . -name '*.map' -delete
 EOF
 
 ####################################################################################################
