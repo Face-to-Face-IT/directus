@@ -31,7 +31,7 @@ export function getSentryFrontendEmbed(): string {
 	const replaysSessionSampleRate = Number.parseFloat(process.env['SENTRY_REPLAYS_SESSION_SAMPLE_RATE'] || '0.1');
 	const replaysOnErrorSampleRate = Number.parseFloat(process.env['SENTRY_REPLAYS_ON_ERROR_SAMPLE_RATE'] || '1.0');
 	const tracesSampleRate = Number.parseFloat(process.env['SENTRY_TRACES_SAMPLE_RATE'] || '0.1');
-	const profilesSampleRate = Number.parseFloat(process.env['SENTRY_PROFILES_SAMPLE_RATE'] || '0.1');
+	const profileSessionSampleRate = Number.parseFloat(process.env['SENTRY_PROFILE_SESSION_SAMPLE_RATE'] || '0.1');
 	const enableLogs = process.env['SENTRY_ENABLE_LOGS'] !== 'false';
 
 	const cdnBase = `https://browser.sentry-cdn.com/${SENTRY_SDK_VERSION}`;
@@ -70,7 +70,8 @@ export function getSentryFrontendEmbed(): string {
 					}),
 				],
 				tracesSampleRate: ${tracesSampleRate},
-				profilesSampleRate: ${profilesSampleRate},
+				profileSessionSampleRate: ${profileSessionSampleRate},
+				profileLifecycle: "trace",
 				replaysSessionSampleRate: ${replaysSessionSampleRate},
 				replaysOnErrorSampleRate: ${replaysOnErrorSampleRate},
 				enableLogs: ${enableLogs},
