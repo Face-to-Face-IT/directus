@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - custom
+      - ci/optimize-docker-deploy
     paths-ignore:
       - '*.md'
       - 'docs/**'
@@ -50,7 +51,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
-          ref: custom
+          ref: ${{ github.ref }}
 
       - name: Read fork manifest
         id: manifest
@@ -106,8 +107,9 @@ jobs:
           else
             SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
 
-            TAGS="${GHCR}:custom"
-            TAGS="${TAGS},${GHCR}:custom-${SHORT_SHA}"
+            BRANCH="${{ github.ref_name }}"
+            TAGS="${GHCR}:${BRANCH}"
+            TAGS="${TAGS},${GHCR}:${BRANCH}-${SHORT_SHA}"
           fi
 
           echo "docker_tags=$TAGS" >> $GITHUB_OUTPUT
@@ -139,7 +141,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: custom
+          ref: ${{ github.ref }}
 
       - name: Setup Blacksmith Builder
         uses: useblacksmith/setup-docker-builder@v1
