@@ -270,7 +270,7 @@ export default async function createApp(): Promise<express.Application> {
 		const sendHtml = (_req: Request, res: Response) => {
 			res.setHeader('Cache-Control', 'no-cache');
 			res.setHeader('Vary', 'Origin, Cache-Control');
-			res.setHeader('Document-Policy', 'js-profiling=self');
+			res.setHeader('Document-Policy', 'js-profiling');
 			res.send(htmlWithVars);
 		};
 
