@@ -138,6 +138,11 @@ function directusExtensions() {
 			apply: 'build',
 			config: () => ({
 				build: {
+					// Generate source maps for Sentry profiling/error deobfuscation.
+					// 'hidden' omits the //# sourceMappingURL comment so maps are
+					// never fetched by browsers — they are uploaded to Sentry and
+					// stripped from the Docker image in the Dockerfile.
+					sourcemap: 'hidden',
 					rollupOptions: {
 						input: {
 							index: path.resolve(__dirname, 'index.html'),
@@ -149,8 +154,6 @@ function directusExtensions() {
 						external: [virtualExtensionsId],
 						preserveEntrySignatures: 'exports-only',
 					},
-				},
-			}),
 		},
 	];
 
