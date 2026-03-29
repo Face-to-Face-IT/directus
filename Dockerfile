@@ -79,6 +79,10 @@ COPY --chown=node:node . .
 # Build all packages (concurrency=4 requires 8-vCPU CI runners)
 RUN npm_config_workspace_concurrency=4 pnpm run build
 
+# Inject Sentry debug IDs into frontend assets so uploaded sourcemaps can
+# symbolicate browser errors and profiles against the exact shipped JS.
+RUN npx -y @sentry/cli sourcemaps inject ./app/dist/assets
+
 # Deploy production bundle
 RUN <<EOF
 	set -ex
