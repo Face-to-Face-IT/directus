@@ -375,6 +375,9 @@ jobs:
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
+      - name: Inject frontend debug IDs
+        run: npx -y @sentry/cli sourcemaps inject ./app/dist/assets
+
       - name: Determine Sentry release version
         id: sentry
         run: |
