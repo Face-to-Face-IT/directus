@@ -52,6 +52,11 @@
       "branch": "feature/relational-search",
       "description": "Relational field search via EXISTS subqueries (M2O, O2M, M2M, M2A)",
       "merge_to_custom": true
+    },
+    {
+      "branch": "feature/open-file",
+      "description": "Open file in new tab action for file and image interfaces",
+      "merge_to_custom": true
     }
   ],
   "releases": [
