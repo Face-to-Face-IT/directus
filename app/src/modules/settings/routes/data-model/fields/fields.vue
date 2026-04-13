@@ -63,12 +63,6 @@ async function saveAndStay() {
 	await Promise.all([collectionsStore.hydrate(), fieldsStore.hydrate()]);
 }
 
-async function saveAndQuit() {
-	await save();
-	await Promise.all([collectionsStore.hydrate(), fieldsStore.hydrate()]);
-	router.push(`/settings/data-model`);
-}
-
 function discardAndLeave() {
 	if (!leaveTo.value) return;
 	edits.value = {};
@@ -116,7 +110,7 @@ function discardAndLeave() {
 				:loading="saving"
 				:disabled="hasEdits === false"
 				icon="check"
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			/>
 		</template>
 

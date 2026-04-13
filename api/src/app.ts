@@ -79,6 +79,8 @@ import projectSchedule from './schedules/project.js';
 import retentionSchedule from './schedules/retention.js';
 import telemetrySchedule from './schedules/telemetry.js';
 import tusSchedule from './schedules/tus.js';
+import { getSentryFrontendEmbed } from './telemetry/sentry-frontend.js';
+import { setupSentryExpressHandler } from './telemetry/sentry.js';
 import { getConfigFromEnv } from './utils/get-config-from-env.js';
 import { Url } from './utils/url.js';
 import { validateStorage } from './utils/validate-storage.js';
@@ -260,18 +262,24 @@ export default async function createApp(): Promise<express.Application> {
 
 		const htmlWithVars = html
 			.replace(/<base \/>/, `<base href="${adminUrl.toString({ rootRelative: true })}/" />`)
-			.replace('<!-- directus-embed-head -->', embeds.head)
+			.replace('<!-- directus-embed-head -->', getSentryFrontendEmbed() + embeds.head)
 			.replace('<!-- directus-embed-body -->', embeds.body);
 
 		const sendHtml = (_req: Request, res: Response) => {
 			res.setHeader('Cache-Control', 'no-cache');
 			res.setHeader('Vary', 'Origin, Cache-Control');
+			res.setHeader('Document-Policy', 'js-profiling');
 			res.send(htmlWithVars);
 		};
 
-		const setStaticHeaders = (res: ServerResponse) => {
+		const setStaticHeaders = (res: ServerResponse, filePath: string) => {
 			res.setHeader('Cache-Control', 'max-age=31536000, immutable');
 			res.setHeader('Vary', 'Origin, Cache-Control');
+
+			// Allow sentry.io to load fonts/CSS for Session Replay rendering fidelity
+			if (/\.(woff2?|ttf|otf|eot|css)$/.test(filePath)) {
+				res.setHeader('Access-Control-Allow-Origin', '*');
+			}
 		};
 
 		app.get('/admin', sendHtml);
@@ -369,6 +377,8 @@ export default async function createApp(): Promise<express.Application> {
 	await emitter.emitInit('routes.custom.after', { app });
 
 	app.use(notFoundHandler);
+
+	setupSentryExpressHandler(app);
 	app.use(errorHandler);
 
 	await emitter.emitInit('routes.after', { app });

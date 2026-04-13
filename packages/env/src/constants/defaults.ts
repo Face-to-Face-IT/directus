@@ -1,9 +1,8 @@
 import { resolve } from 'node:path';
 import { cwd } from 'node:process';
 import { DEFAULT_CHUNK_SIZE } from '@directus/constants';
-import type { Env } from '../types/env.js';
 
-export const DEFAULTS: Env = {
+export const DEFAULTS = {
 	CONFIG_PATH: resolve(cwd(), '.env'),
 
 	HOST: '0.0.0.0',
@@ -118,6 +117,10 @@ export const DEFAULTS: Env = {
 	TELEMETRY_URL: 'https://telemetry.directus.io',
 	COMPLIANCE_URL: 'https://telemetry.directus.io',
 
+	OPENTELEMETRY_ENABLED: false,
+	OPENTELEMETRY_SERVICE_NAME: 'directus-api',
+	OPENTELEMETRY_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+
 	ASSETS_CACHE_TTL: '30d',
 	ASSETS_TRANSFORM_MAX_CONCURRENT: 25,
 	ASSETS_TRANSFORM_IMAGE_MAX_DIMENSION: 6000,
@@ -156,7 +159,6 @@ export const DEFAULTS: Env = {
 	REVISIONS_RETENTION: '90d',
 	FLOW_LOGS_RETENTION: '90d',
 
-	OPENAPI_ENABLED: true,
 	GRAPHQL_INTROSPECTION: true,
 	GRAPHQL_SCHEMA_GENERATION_MAX_CONCURRENT: 5,
 	GRAPHQL_QUERY_TOKEN_LIMIT: 5000,
@@ -205,14 +207,5 @@ export const DEFAULTS: Env = {
 	MCP_ENABLED: true,
 
 	AI_ENABLED: true,
-	AI_DEVTOOLS_ENABLED: false,
-	AI_TELEMETRY_ENABLED: false,
-	AI_TELEMETRY_PROVIDER: 'langfuse',
-	AI_TELEMETRY_RECORD_IO: false,
-	LANGFUSE_SECRET_KEY: '',
-	LANGFUSE_PUBLIC_KEY: '',
-	LANGFUSE_BASE_URL: 'https://cloud.langfuse.com',
-	BRAINTRUST_API_KEY: '',
-	BRAINTRUST_PROJECT_NAME: '',
-	BRAINTRUST_API_URL: '',
+	RELATIONAL_SEARCH_MAX_DEPTH: 0,
 } as const;

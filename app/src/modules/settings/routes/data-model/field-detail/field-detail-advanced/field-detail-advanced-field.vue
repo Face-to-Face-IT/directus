@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SEARCHABLE_TYPES } from '@directus/constants';
+import { RELATIONAL_TYPES, SEARCHABLE_TYPES } from '@directus/constants';
 import { storeToRefs } from 'pinia';
 import { computed } from 'vue';
 import { syncFieldDetailStoreProperty, useFieldDetailStore } from '../store';
@@ -23,13 +23,15 @@ const userStore = useUserStore();
 const searchable = syncFieldDetailStoreProperty('field.meta.searchable', true);
 
 const isSearchableType = computed(() => {
-	// exclude alias fields (o2m, m2m, m2a) as they don't store searchable data
-	if (type.value === 'alias') return false;
+	// Primitive searchable types (string, number, uuid, etc.)
+	if (SEARCHABLE_TYPES.includes(type.value)) return true;
 
-	// exclude relational fields except m2o, which stores foreign keys that are typically not useful for search
-	if (localType.value && localType.value !== 'standard') return false;
+	// Relational types can be searched if RELATIONAL_SEARCH_MAX_DEPTH > 0
+	// The searchable toggle lets admins control which relational fields participate in search
+	if (type.value === 'alias' && localType.value && RELATIONAL_TYPES.includes(localType.value as any)) return true;
+	if (localType.value && RELATIONAL_TYPES.includes(localType.value as any)) return true;
 
-	return SEARCHABLE_TYPES.includes(type.value);
+	return false;
 });
 </script>
 

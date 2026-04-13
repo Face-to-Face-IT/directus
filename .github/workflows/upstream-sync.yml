@@ -1,0 +1,239 @@
+# =============================================================================
+# Upstream Sync: Automatically sync main with upstream and rebuild custom
+# =============================================================================
+# This workflow keeps the fork in sync with directus/directus.
+#
+# Happy path (no conflicts):
+#   1. Fast-forward main to upstream/main
+#   2. Rebuild custom from scratch (main + all feature/* branches)
+#   3. Force-push custom (triggers release.yml dev build)
+#   4. Update .fork-manifest.json with latest sync date + upstream version
+#
+# Conflict path:
+#   1. Fast-forward main (always succeeds — main is a pure mirror)
+#   2. Attempt rebuild — if any feature branch conflicts, ABORT
+#   3. Leave custom untouched, open a GitHub issue with conflict details
+#
+# NOTE: Pushes made with GITHUB_TOKEN do not trigger downstream workflows.
+# To trigger release.yml automatically on custom push, set the SYNC_TOKEN
+# secret to a PAT or GitHub App installation token with contents:write scope.
+# =============================================================================
+
+name: Upstream Sync
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Weekly on Monday at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild custom even if main is already up to date'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+env:
+  UPSTREAM_REPO: directus/directus
+
+jobs:
+  sync:
+    name: Sync Upstream & Rebuild Custom
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.SYNC_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream "https://github.com/${{ env.UPSTREAM_REPO }}.git" || true
+          git fetch upstream main --tags
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          LOCAL_SHA=$(git rev-parse main)
+          UPSTREAM_SHA=$(git rev-parse upstream/main)
+
+          if [ "$LOCAL_SHA" == "$UPSTREAM_SHA" ] && [ "${{ inputs.force_rebuild }}" != "true" ]; then
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "main is already up to date with upstream"
+          else
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            COMMITS_BEHIND=$(git rev-list --count main..upstream/main)
+            echo "commits_behind=$COMMITS_BEHIND" >> $GITHUB_OUTPUT
+            echo "main is $COMMITS_BEHIND commits behind upstream"
+          fi
+
+      - name: Fast-forward main
+        if: steps.check.outputs.has_updates == 'true'
+        run: |
+          git checkout main
+          git merge --ff-only upstream/main
+          git push origin main
+
+      - name: Detect upstream version
+        id: version
+        if: steps.check.outputs.has_updates == 'true' || inputs.force_rebuild == true
+        run: |
+          # Find the latest version tag reachable from main
+          LATEST_TAG=$(git describe --tags --abbrev=0 --match 'v*' main 2>/dev/null || echo "")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          echo "Latest upstream tag: $LATEST_TAG"
+
+      - name: Rebuild custom branch
+        id: rebuild
+        if: steps.check.outputs.has_updates == 'true' || inputs.force_rebuild == true
+        run: |
+          set -euo pipefail
+
+          # Start fresh from main
+          git checkout -B custom main
+
+          # Read feature branches from manifest
+          BRANCHES=$(jq -r '.features[] | select(.merge_to_custom == true) | .branch' .fork-manifest.json)
+
+          MERGED=()
+          FAILED=()
+
+          for branch in $BRANCHES; do
+            echo "::group::Merging $branch"
+
+            # Fetch the branch
+            if ! git fetch origin "$branch" 2>/dev/null; then
+              echo "::warning::Branch $branch not found on remote, skipping"
+              FAILED+=("$branch (not found)")
+              echo "::endgroup::"
+              continue
+            fi
+
+            if git merge --no-ff "origin/$branch" -m "Merge $branch into custom"; then
+              echo "✅ Merged $branch"
+              MERGED+=("$branch")
+            else
+              echo "❌ Conflict merging $branch"
+              git merge --abort
+              FAILED+=("$branch (merge conflict)")
+            fi
+
+            echo "::endgroup::"
+          done
+
+          # Report results
+          echo "merged_count=${#MERGED[@]}" >> $GITHUB_OUTPUT
+          echo "failed_count=${#FAILED[@]}" >> $GITHUB_OUTPUT
+
+          # Write multi-line outputs
+          {
+            echo "merged_branches<<EOF"
+            printf '%s\n' "${MERGED[@]}"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            {
+              echo "failed_branches<<EOF"
+              printf '%s\n' "${FAILED[@]}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+            echo "has_failures=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_failures=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update manifest
+        if: steps.rebuild.outputs.has_failures != 'true' && (steps.check.outputs.has_updates == 'true' || inputs.force_rebuild == true)
+        run: |
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          LATEST_TAG="${{ steps.version.outputs.latest_tag }}"
+
+          # Update last_sync timestamp
+          jq --arg date "$DATE" '.last_sync = $date' .fork-manifest.json > tmp.json && mv tmp.json .fork-manifest.json
+
+          # Update upstream_base if a new tag was detected
+          if [ -n "$LATEST_TAG" ]; then
+            jq --arg tag "$LATEST_TAG" '.upstream_base = $tag' .fork-manifest.json > tmp.json && mv tmp.json .fork-manifest.json
+          fi
+
+          git add .fork-manifest.json
+          git commit -m "chore: sync upstream ${LATEST_TAG:-$(date +%Y-%m-%d)}" || true
+
+      - name: Push custom branch
+        if: steps.rebuild.outputs.has_failures != 'true' && (steps.check.outputs.has_updates == 'true' || inputs.force_rebuild == true)
+        run: git push origin custom --force-with-lease
+
+      - name: Open issue on merge conflict
+        if: steps.rebuild.outputs.has_failures == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const failed = `${{ steps.rebuild.outputs.failed_branches }}`.trim().split('\n');
+            const merged = `${{ steps.rebuild.outputs.merged_branches }}`.trim().split('\n').filter(Boolean);
+            const latestTag = '${{ steps.version.outputs.latest_tag }}' || 'unknown';
+
+            const body = [
+              `## Upstream Sync Failed`,
+              ``,
+              `The automated upstream sync to \`${latestTag}\` succeeded in updating \`main\`, but failed to rebuild \`custom\` due to merge conflicts.`,
+              ``,
+              `### ✅ Merged successfully (${merged.length})`,
+              ...merged.map(b => `- \`${b}\``),
+              ``,
+              `### ❌ Failed to merge (${failed.length})`,
+              ...failed.map(b => `- \`${b}\``),
+              ``,
+              `### Resolution`,
+              `1. Rebase the conflicting feature branches onto updated \`main\`:`,
+              `\`\`\`bash`,
+              ...failed.map(b => {
+                const branch = b.replace(/ \(.*\)$/, '');
+                return `git checkout ${branch} && git rebase main && git push origin ${branch} --force-with-lease`;
+              }),
+              `\`\`\``,
+              `2. Re-run this workflow or rebuild \`custom\` manually.`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Upstream sync conflict: ${latestTag}`,
+              body,
+              labels: ['upstream-sync', 'merge-conflict'],
+            });
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Upstream Sync Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.check.outputs.has_updates }}" == "false" ]; then
+            echo "✅ main is already up to date with upstream. No action taken." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "| --- | --- |" >> $GITHUB_STEP_SUMMARY
+          echo "| Upstream Tag | \`${{ steps.version.outputs.latest_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commits synced | ${{ steps.check.outputs.commits_behind }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Features merged | ${{ steps.rebuild.outputs.merged_count }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Failed merges | ${{ steps.rebuild.outputs.failed_count }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ steps.rebuild.outputs.has_failures }}" == "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **custom branch was NOT updated** due to merge conflicts. See issue." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "✅ **custom branch rebuilt and pushed successfully.**" >> $GITHUB_STEP_SUMMARY
+          fi

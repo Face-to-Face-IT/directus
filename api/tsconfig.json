@@ -2,7 +2,7 @@
 	"extends": "@directus/tsconfig/node22",
 	"compilerOptions": {
 		"outDir": "dist",
-		"isolatedDeclarations": false
+		"sourceMap": true
 	},
 	"include": ["src"]
 }
