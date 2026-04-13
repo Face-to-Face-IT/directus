@@ -287,6 +287,11 @@ function useURLImport() {
 
 			<VList>
 				<template v-if="file">
+					<VListItem clickable :href="getAssetUrl(file.id)" target="_blank">
+						<VListItemIcon><VIcon name="open_in_new" /></VListItemIcon>
+						<VListItemContent>{{ $t('open_file_in_tab') }}</VListItemContent>
+					</VListItem>
+
 					<VListItem clickable :download="file.filename_download" :href="getAssetUrl(file.id, { isDownload: true })">
 						<VListItemIcon><VIcon name="get_app" /></VListItemIcon>
 						<VListItemContent>{{ $t('download_file') }}</VListItemContent>

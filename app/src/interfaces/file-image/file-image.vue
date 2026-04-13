@@ -240,6 +240,16 @@ const { createAllowed, updateAllowed } = useRelationPermissionsM2O(relationInfo)
 				</VButton>
 
 				<VButton
+					v-tooltip="$t('open_file_in_tab')"
+					icon
+					rounded
+					:href="getAssetUrl(image.id)"
+					target="_blank"
+				>
+					<VIcon name="open_in_new" />
+				</VButton>
+
+				<VButton
 					v-tooltip="$t('download')"
 					icon
 					rounded
