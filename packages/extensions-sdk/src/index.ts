@@ -8,6 +8,7 @@ export {
 	useLayout,
 	useStores,
 	useSync,
+	useParentFormContext,
 } from '@directus/composables';
 export {
 	defineDisplay,
