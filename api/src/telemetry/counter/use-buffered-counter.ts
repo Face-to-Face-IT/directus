@@ -87,7 +87,7 @@ export const useBufferedCounter = (key: string, options?: FlusherOptions) => {
 			await counter.increment(`${key}:${subKey}`, amount);
 		} catch (err) {
 			state.count += amount;
-			logger.error(`Failed to flush buffered counter for ${key}:${subKey}`, err);
+			logger.error(`Failed to flush buffered counter for ${key}:${subKey}: ${err}`);
 		} finally {
 			state.flushing = false;
 		}

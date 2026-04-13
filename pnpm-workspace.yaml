@@ -8,10 +8,13 @@ packages:
 
 catalog:
   '@ai-sdk/anthropic': 3.0.9
+  '@ai-sdk/devtools': 0.0.13
   '@ai-sdk/google': 3.0.6
   '@ai-sdk/openai': 3.0.7
   '@ai-sdk/openai-compatible': 2.0.4
   '@ai-sdk/vue': 3.0.25
+  '@braintrust/otel': 0.2.0
+  '@langfuse/otel': 4.0.0
   '@authenio/samlify-node-xmllint': 2.0.0
   '@aws-sdk/client-s3': 3.928.0
   '@aws-sdk/client-sesv2': 3.928.0
@@ -81,6 +84,7 @@ catalog:
   '@opentelemetry/sdk-metrics': 1.30.0
   '@opentelemetry/sdk-node': 0.57.0
   '@opentelemetry/sdk-trace-base': 1.30.0
+  '@opentelemetry/sdk-trace-node': 2.1.0
   '@opentelemetry/sdk-trace-web': 1.30.0
   '@opentelemetry/semantic-conventions': 1.28.0
   '@pinia/testing': 1.0.3
