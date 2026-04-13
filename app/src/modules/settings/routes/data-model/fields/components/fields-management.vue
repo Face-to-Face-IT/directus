@@ -176,19 +176,44 @@ async function setNestedSort(updates?: Field[]) {
 </template>
 
 <style lang="scss" scoped>
+.v-divider {
+	margin: 32px 0;
+}
+
 .fields-management {
-	margin-block-end: 1.375rem;
+	margin-block-end: 24px;
 }
 
 .field-grid {
 	position: relative;
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-	padding-block-end: 1.375rem;
+	grid-template-columns: repeat(6, 1fr);
+	container-type: inline-size;
+	padding-block-end: 24px;
+
+	// Default narrow: everything full width
+	> .field-select {
+		grid-column: 1 / -1;
+	}
+
+	@container (inline-size >= 556px) {
+		> .field-select.third {
+			grid-column: span 2;
+		}
+
+		> .field-select.half {
+			grid-column: span 3;
+		}
+
+		> .field-select.full,
+		> .field-select.fill {
+			grid-column: 1 / -1;
+		}
+	}
 }
 
 .field-select {
-	margin: 0.25rem;
+	margin: 4px;
 }
 
 .field-select:deep(.field-grid) {
@@ -196,26 +221,26 @@ async function setNestedSort(updates?: Field[]) {
 }
 
 .field-select:deep(.field-grid.group.full.nested) {
-	margin: 0.25rem 0;
+	margin: 4px 0;
 
 	.field-select {
-		margin: 0.25rem;
+		margin: 4px;
 	}
 }
 
 .add-field {
-	--v-button-font-size: 0.8125rem;
+	--v-button-font-size: 14px;
 	--v-button-background-color: var(--theme--primary);
 	--v-button-background-color-hover: var(--theme--primary-accent);
 
-	margin-block-start: -0.6875rem;
+	margin-block-start: -12px;
 }
 
 .add-field-advanced {
 	display: block;
 	inline-size: max-content;
 	margin: 0 auto;
-	margin-block-start: 0.4375rem;
+	margin-block-start: 8px;
 	color: var(--theme--foreground-subdued);
 	transition: color var(--fast) var(--transition);
 
@@ -225,7 +250,7 @@ async function setNestedSort(updates?: Field[]) {
 }
 
 .visible {
-	margin-block-end: 1.375rem;
+	margin-block-end: 24px;
 }
 
 .list-move {

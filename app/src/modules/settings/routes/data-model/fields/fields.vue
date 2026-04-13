@@ -162,10 +162,10 @@ function discardAndLeave() {
 
 <style lang="scss" scoped>
 .title {
-	margin-block-end: 0.6875rem;
+	margin-block-end: 12px;
 
 	.instant-save {
-		margin-inline-start: 0.25rem;
+		margin-inline-start: 4px;
 		color: var(--theme--warning);
 	}
 }
@@ -176,8 +176,8 @@ function discardAndLeave() {
 }
 
 .fields {
-	max-inline-size: 45rem;
-	margin-block-end: 2.6875rem;
+	max-inline-size: 1200px;
+	margin-block-end: 48px;
 }
 
 .action-delete {

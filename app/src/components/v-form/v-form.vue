@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { useElementSize } from '@directus/composables';
-import { Field, ValidationError } from '@directus/types';
+import { ContentVersion, Field, ValidationError } from '@directus/types';
 import { assign, cloneDeep, isEmpty, isEqual, isNil, omit } from 'lodash';
 import { computed, onBeforeUpdate, provide, ref, watch } from 'vue';
 import VDivider from '../v-divider.vue';
@@ -10,14 +9,12 @@ import type { MenuOptions } from './components/form-field-menu.vue';
 import FormField from './components/form-field.vue';
 import ValidationErrors from './components/validation-errors.vue';
 import { useAiTools } from './composables/use-ai-tools';
-import { type ComparisonContext, type FieldValues, type FormField as TFormField } from './types';
+import type { ComparisonContext, FieldValues, FormField as TFormField } from './types';
 import { getFormFields } from './utils/get-form-fields';
-import { selectiveClone } from './utils/selective-clone';
 import { updateFieldWidths } from './utils/update-field-widths';
 import { updateSystemDivider } from './utils/update-system-divider';
 import { CollabContext } from '@/composables/use-collab';
 import { useFieldsStore } from '@/stores/fields';
-import type { ContentVersionMaybeNew } from '@/types/versions';
 import { applyConditions } from '@/utils/apply-conditions';
 import { extractFieldFromFunction } from '@/utils/extract-field-from-function';
 import { getDefaultValuesFromFields } from '@/utils/get-default-values-from-fields';
@@ -47,7 +44,7 @@ const props = withDefaults(
 		direction?: string;
 		showDivider?: boolean;
 		inline?: boolean;
-		version?: ContentVersionMaybeNew | null;
+		version?: ContentVersion | null;
 		comparison?: ComparisonContext;
 		collabContext?: CollabContext;
 	}>(),
@@ -69,30 +66,8 @@ const props = withDefaults(
 
 const emit = defineEmits(['update:modelValue']);
 
-const fieldsStore = useFieldsStore();
-
-const fieldDefinitions = computed<Field[]>(() => {
-	if (props.collection) {
-		return fieldsStore.getFieldsForCollection(props.collection);
-	}
-
-	if (props.fields) {
-		return props.fields;
-	}
-
-	return [];
-});
-
-const fieldDefinitionsMap = computed<Record<string, Field | undefined>>(() => {
-	return Object.fromEntries(fieldDefinitions.value.map((field) => [field.field, field]));
-});
-
 const values = computed(() => {
-	return Object.assign(
-		{},
-		selectiveClone(props.initialValues, fieldDefinitionsMap.value),
-		selectiveClone(props.modelValue, fieldDefinitionsMap.value),
-	);
+	return Object.assign({}, cloneDeep(props.initialValues), cloneDeep(props.modelValue));
 });
 
 const el = ref<Element>();
@@ -102,8 +77,8 @@ const { width } = useElementSize(el);
 const gridClass = computed<string | null>(() => {
 	if (el.value === null) return null;
 
-	// 770 (drawer width) - 2 * 22 (content-padding) = 726
-	if (width.value > 726) {
+	// 856 (drawer width) - 2 * 24 (content-padding) = 808
+	if (width.value > 808) {
 		return 'grid with-fill';
 	} else {
 		return 'grid';
@@ -172,11 +147,6 @@ watch(
 
 provide('values', values);
 
-// Get parent form values from the global context stack
-// This allows conditions to reference parent form values via $form variable
-// Works across teleport boundaries (unlike provide/inject)
-const parentFormValues = useParentFormContext();
-
 function useForm() {
 	const fieldsStore = useFieldsStore();
 	const fields = ref<Field[]>(getFields());
@@ -200,7 +170,7 @@ function useForm() {
 		const valuesWithDefaults = Object.assign({}, defaultValues.value, values.value);
 
 		let fields = formFields.value.map((field) =>
-			applyConditions(valuesWithDefaults, setPrimaryKeyReadonly(field), props.version, parentFormValues.value),
+			applyConditions(valuesWithDefaults, setPrimaryKeyReadonly(field), props.version),
 		);
 
 		fields = pushGroupOptionsDown(fields);
@@ -299,7 +269,7 @@ function setValue(fieldKey: string, value: any, opts?: { force?: boolean }) {
 
 	if (opts?.force !== true && (!field || isDisabled(field))) return;
 
-	const edits = props.modelValue ? selectiveClone(props.modelValue, fieldDefinitionsMap.value) : {};
+	const edits = props.modelValue ? cloneDeep(props.modelValue) : {};
 	edits[fieldKey] = value;
 	emit('update:modelValue', edits);
 }
@@ -557,8 +527,8 @@ function getComparisonIndicatorClasses(field: TFormField, isGroup = false) {
 }
 
 .v-divider {
-	margin-block-end: 2.8125rem;
-	grid-column: 1 / 3;
+	margin-block-end: 50px;
+	grid-column: start / fill;
 }
 
 .indicator-active {

@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n';
 import { RouterLink, useRouter } from 'vue-router';
 import Draggable from 'vuedraggable';
 import FieldSelectMenu from './field-select-menu.vue';
-import { deepMapFilter } from '@/../../packages/utils/shared/deep-map-filter';
 import VButton from '@/components/v-button.vue';
 import VCardActions from '@/components/v-card-actions.vue';
 import VCardText from '@/components/v-card-text.vue';
@@ -16,7 +15,6 @@ import VDialog from '@/components/v-dialog.vue';
 import VIcon from '@/components/v-icon/v-icon.vue';
 import VInput from '@/components/v-input.vue';
 import { useExtension } from '@/composables/use-extension';
-import { useSchemaOverview } from '@/composables/use-schema';
 import InterfaceSystemCollection from '@/interfaces/_system/system-collection/system-collection.vue';
 import { useFieldsStore } from '@/stores/fields';
 import { getLocalTypeForField } from '@/utils/get-local-type';
@@ -52,8 +50,6 @@ const inter = useExtension(
 	'interface',
 	computed(() => props.field.meta?.interface ?? null),
 );
-
-const schemaOverview = useSchemaOverview();
 
 const interfaceName = computed(() => inter.value?.name ?? null);
 
@@ -138,28 +134,6 @@ function useDuplicate() {
 			delete newField.meta.id;
 			delete newField.meta.sort;
 			delete newField.meta.group;
-		}
-
-		if (newField.meta?.validation) {
-			newField.meta.validation = deepMapFilter(
-				newField.meta.validation,
-				([key, value], context) => {
-					if (
-						context.leaf &&
-						context.field &&
-						context.collection.collection === props.field.collection &&
-						key === props.field.field
-					) {
-						return [duplicateName.value, value];
-					}
-
-					return [key, value];
-				},
-				{
-					schema: schemaOverview.value,
-					collection: props.field.collection,
-				},
-			);
 		}
 
 		if (newField.schema) {
@@ -370,18 +344,20 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 </template>
 
 <style lang="scss" scoped>
-@use '@/styles/mixins';
-
 .field-select {
-	--input-height: 2.25rem;
-	--theme--form--field--input--padding: 0.4375rem;
+	--input-height: 40px;
+	--theme--form--field--input--padding: 8px;
 	-webkit-user-select: none;
 	user-select: none;
 }
 
 .full,
 .fill {
-	grid-column: 1 / span 2;
+	grid-column: 1 / -1;
+}
+
+.third {
+	grid-column: span 2;
 }
 
 .v-input.monospace {
@@ -416,11 +392,11 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 
 .duplicate {
 	.type-label {
-		margin-block-end: 0.25rem;
+		margin-block-end: 4px;
 	}
 
 	.duplicate-field + .duplicate-field {
-		margin-block-end: 1.8125rem;
+		margin-block-end: 32px;
 	}
 }
 
@@ -428,7 +404,7 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 	position: relative;
 	min-block-size: var(--theme--form--field--input--height);
 	padding: var(--theme--form--field--input--padding);
-	padding-block: 2.25rem 0.875rem;
+	padding-block: 40px 16px;
 	border-radius: var(--theme--border-radius);
 
 	> * {
@@ -439,12 +415,12 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 	&::before {
 		position: absolute;
 		inset-block-start: 0;
-		inset-inline-start: -0.125rem;
+		inset-inline-start: -2px;
 		z-index: 1;
-		inline-size: 0.25rem;
+		inline-size: 4px;
 		block-size: 100%;
 		background-color: var(--theme--primary);
-		border-radius: 0.125rem;
+		border-radius: 2px;
 		content: '';
 	}
 
@@ -467,15 +443,15 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 		display: flex;
 		align-items: center;
 		inline-size: 100%;
-		margin-block-end: 0.4375rem;
-		padding-block-start: 0.4375rem;
+		margin-block-end: 8px;
+		padding-block-start: 8px;
 		color: var(--theme--primary);
 		font-family: var(--theme--fonts--monospace--font-family);
 
 		.drag-handle {
 			--v-icon-color: var(--theme--primary);
 
-			margin-inline-end: 0.4375rem;
+			margin-inline-end: 8px;
 		}
 
 		.name {
@@ -487,11 +463,32 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 .field-grid {
 	position: relative;
 	display: grid;
-	gap: 0.4375rem;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 8px;
+	grid-template-columns: repeat(6, 1fr);
+	container-type: inline-size;
 
 	& + & {
-		margin-block-start: 0.4375rem;
+		margin-block-start: 8px;
+	}
+
+	// Default narrow: everything full width
+	> .field-select {
+		grid-column: 1 / -1;
+	}
+
+	@container (inline-size >= 556px) {
+		> .field-select.third {
+			grid-column: span 2;
+		}
+
+		> .field-select.half {
+			grid-column: span 3;
+		}
+
+		> .field-select.full,
+		> .field-select.fill {
+			grid-column: 1 / -1;
+		}
 	}
 
 	&.nested {
@@ -524,7 +521,7 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 			text-overflow: ellipsis;
 
 			.name {
-				margin-inline-end: 0.4375rem;
+				margin-inline-end: 8px;
 				font-family: var(--theme--fonts--monospace--font-family);
 			}
 
@@ -535,7 +532,7 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 				opacity: 0;
 				transition: opacity var(--fast) var(--transition);
 
-				@include mixins.breakpoint-up('sm') {
+				@media (width > 640px) {
 					display: initial;
 				}
 			}
@@ -553,7 +550,7 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 
 .icons {
 	* + *:not(:last-child) {
-		margin-inline-start: 0.4375rem;
+		margin-inline-start: 8px;
 	}
 }
 
@@ -562,12 +559,12 @@ const tFieldType = (type: string) => t(type === 'geometry' ? 'geometry.All' : ty
 }
 
 .form-grid {
-	--theme--form--row-gap: 1.375rem;
+	--theme--form--row-gap: 24px;
 }
 
 .required {
 	position: relative;
-	inset-inline-start: -0.4375rem;
+	inset-inline-start: -8px;
 	color: var(--theme--primary);
 }
 

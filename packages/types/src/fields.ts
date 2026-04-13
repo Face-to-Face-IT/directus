@@ -16,7 +16,7 @@ type Translations = {
 	translation: string;
 };
 
-export type Width = 'half' | 'half-left' | 'half-right' | 'full' | 'fill';
+export type Width = 'half' | 'half-left' | 'half-right' | 'third' | 'full' | 'fill';
 
 export type Type = (typeof TYPES)[number];
 
