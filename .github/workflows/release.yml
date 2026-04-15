@@ -59,6 +59,8 @@ jobs:
 
       - name: Determine version
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           IS_RELEASE="${{ inputs.release == true && 'true' || 'false' }}"
 
