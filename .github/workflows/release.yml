@@ -358,12 +358,15 @@ jobs:
           ref: custom
           fetch-depth: 0 # Full history for commit association
 
-      # Remove again once corepack >= 0.31 made it into base image
-      - name: Install corepack
-        run: npm install --global corepack@latest
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: package.json
 
-      - name: Enable corepack
-        run: corepack enable && corepack prepare
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          run_install: false
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
