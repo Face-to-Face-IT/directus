@@ -56,6 +56,22 @@
   ],
   "releases": [
     {
+      "tag": "11.15.4-f2f.13",
+      "upstream_base": "11.15.4",
+      "date": "2026-04-15T13:14:21Z",
+      "features": [
+        "feature/form-context",
+        "feature/collection-url-params",
+        "feature/packer",
+        "feature/form-grid-columns",
+        "feature/sentry",
+        "feature/ai-file-content-tool",
+        "feature/external-mcp-tools",
+        "feature/save-and-stay-default",
+        "feature/relational-search"
+      ]
+    },
+    {
       "tag": "11.15.4-f2f.4",
       "upstream_base": "11.15.4",
       "date": "2026-04-15T01:20:39Z",
