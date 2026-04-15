@@ -347,7 +347,7 @@ jobs:
   sentry-release:
     name: Sentry Release
     needs: [prepare, publish-docker-images]
-    if: always() && needs.publish-docker-images.result == 'success'
+    if: always() && needs.publish-docker-images.result == 'success' && needs.prepare.outputs.is_release == 'true'
     runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: read
