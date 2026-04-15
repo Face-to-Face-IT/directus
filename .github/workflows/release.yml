@@ -65,15 +65,9 @@ jobs:
           if [ "$IS_RELEASE" == "true" ]; then
             UPSTREAM="${{ steps.manifest.outputs.upstream_version }}"
 
-            # Find the highest existing build number for this upstream version
-            LAST_BUILD=$(jq -r --arg base "$UPSTREAM" '
-              [.releases[]
-                | select(.upstream_base == $base)
-                | .tag
-                | capture("-f2f\\.(?<n>[0-9]+)$")
-                | .n | tonumber
-              ] | max // 0
-            ' .fork-manifest.json)
+            # Find the highest existing build number from GitHub releases
+            LAST_BUILD=$(gh release list --limit 100 --json tagName \
+              --jq "[.[] | .tagName | select(startswith(\"${UPSTREAM}-f2f.\")) | split(\"-f2f.\")[1] | tonumber] | max // 0")
 
             NEXT_BUILD=$((LAST_BUILD + 1))
             FORK_VERSION="${UPSTREAM}-f2f.${NEXT_BUILD}"
