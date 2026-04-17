@@ -12,10 +12,84 @@
  *
  * When SENTRY_DSN is not set, this module is a no-op.
  */
+import type { ErrorEvent, EventHint, Breadcrumb, BreadcrumbHint } from '@sentry/node';
 import * as Sentry from '@sentry/node';
 import { nodeProfilingIntegration } from '@sentry/profiling-node';
 
 let initialized = false;
+
+/**
+ * PII scrubbing — strip sensitive data from Sentry error events.
+ *
+ * Directus API errors can include request bodies, query parameters, and
+ * headers containing child welfare records. This hook redacts those before
+ * the event leaves the server.
+ */
+function beforeSend(event: ErrorEvent, _hint: EventHint): ErrorEvent | null {
+	// Scrub request body — may contain item payloads with PII
+	if (event.request?.data) {
+		event.request.data = '[Redacted]';
+	}
+
+	// Scrub query strings — filter values can contain names, IDs, etc.
+	if (event.request?.query_string) {
+		event.request.query_string = '[Redacted]';
+	}
+
+	// Scrub cookies — session tokens
+	if (event.request?.cookies) {
+		event.request.cookies = {};
+	}
+
+	// Scrub Authorization / Cookie headers
+	if (event.request?.headers) {
+		const sensitiveHeaders = ['authorization', 'cookie', 'set-cookie', 'x-forwarded-for'];
+
+		for (const header of sensitiveHeaders) {
+			if (header in event.request.headers) {
+				event.request.headers[header] = '[Redacted]';
+			}
+		}
+	}
+
+	// Scrub breadcrumb data that may carry request/response bodies
+	if (event.breadcrumbs) {
+		for (const breadcrumb of event.breadcrumbs) {
+			scrubBreadcrumb(breadcrumb);
+		}
+	}
+
+	return event;
+}
+
+/**
+ * Scrub PII from individual breadcrumbs.
+ *
+ * HTTP breadcrumbs can capture request/response bodies and URLs with
+ * query parameters containing record data.
+ */
+function scrubBreadcrumb(breadcrumb: Breadcrumb): Breadcrumb {
+	if (breadcrumb.category === 'http' && breadcrumb.data) {
+		// Remove response/request bodies
+		delete breadcrumb.data['request_body'];
+		delete breadcrumb.data['response_body'];
+
+		// Redact query strings from URLs
+		if (typeof breadcrumb.data['url'] === 'string') {
+			const qIndex = breadcrumb.data['url'].indexOf('?');
+
+			if (qIndex !== -1) {
+				breadcrumb.data['url'] = breadcrumb.data['url'].substring(0, qIndex) + '?[Redacted]';
+			}
+		}
+	}
+
+	return breadcrumb;
+}
+
+function beforeBreadcrumb(breadcrumb: Breadcrumb, _hint?: BreadcrumbHint): Breadcrumb | null {
+	return scrubBreadcrumb(breadcrumb);
+}
 
 function getEnvString(key: string, defaultValue: string): string {
 	return process.env[key] || defaultValue;
@@ -71,6 +145,12 @@ export async function initSentry() {
 
 			// Logs — captures Sentry.logger.* calls, links to active traces
 			enableLogs,
+
+			// PII scrubbing — prevent child welfare data from reaching Sentry.
+			// Explicitly disable default PII collection (IP addresses, user agent, etc.)
+			sendDefaultPii: false,
+			beforeSend,
+			beforeBreadcrumb,
 
 			// Sentry manages OpenTelemetry instrumentation internally —
 			// no separate OTel SDK init or ADOT sidecar needed.
