@@ -152,6 +152,47 @@ export function getSentryFrontendEmbed(): string {
 			});
 			${tenantName ? `Sentry.setTag("tenant_name", ${JSON.stringify(tenantName)});` : ''}
 			${environmentName ? `Sentry.setTag("f2f_environment", ${JSON.stringify(environmentName)});` : ''}
+
+			// User attribution — read from Directus auth and set in Sentry
+			(function setSentryUser() {
+				function getUserFromStorage() {
+					try {
+						const authData = localStorage.getItem('directus_access_token');
+						if (!authData) return null;
+						
+						const userInfo = localStorage.getItem('user');
+						if (!userInfo) return null;
+						
+						const user = JSON.parse(userInfo);
+						if (!user.id) return null;
+						
+						// Only set non-PII identifiers (id, email)
+						return {
+							id: user.id,
+							email: user.email || undefined,
+						};
+					} catch (e) {
+						return null;
+					}
+				}
+				
+				function updateUser() {
+					const user = getUserFromStorage();
+					if (user) {
+						Sentry.setUser(user);
+					}
+				}
+				
+				// Set initial user if already logged in
+				updateUser();
+				
+				// Listen for storage changes (login/logout)
+				window.addEventListener('storage', function(e) {
+					if (e.key === 'directus_access_token' || e.key === 'user') {
+						updateUser();
+					}
+				});
+			})();
 		</script>
 	`;
 }
