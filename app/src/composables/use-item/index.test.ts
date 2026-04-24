@@ -55,6 +55,10 @@ vi.mock('@/api', () => {
 
 vi.mock('@directus/composables');
 
+vi.mock('@/composables/use-parent-form-context', () => ({
+	useParentFormContext: vi.fn(() => computed(() => ({}))),
+}));
+
 vi.mock('@/utils/apply-conditions', () => ({
 	applyConditions: vi.fn(),
 }));
