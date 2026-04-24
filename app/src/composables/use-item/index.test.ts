@@ -62,6 +62,10 @@ vi.mock('@/sdk', async () => {
 
 vi.mock('@directus/composables');
 
+vi.mock('@/composables/use-parent-form-context', () => ({
+	useParentFormContext: vi.fn(() => computed(() => ({}))),
+}));
+
 vi.mock('@/utils/get-related-collection', () => ({
 	getRelatedCollection: vi.fn(() => ({
 		relatedCollection: 'test_related',

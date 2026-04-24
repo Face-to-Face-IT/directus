@@ -2,7 +2,12 @@ import { Field } from '@directus/types';
 import { createTestingPinia } from '@pinia/testing';
 import { setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computed } from 'vue';
 import { clearHiddenFieldsByCondition, shouldClearField } from './clear-hidden-fields-by-condition.js';
+
+vi.mock('@/composables/use-parent-form-context', () => ({
+	useParentFormContext: vi.fn(() => computed(() => ({}))),
+}));
 
 function makeField(fieldName: string, overrides: Partial<Field> = {}): Field {
 	return {

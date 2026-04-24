@@ -8,6 +8,7 @@ import {
 import { cloneDeep, flatten, isEmpty, isNil } from 'lodash';
 import { applyConditions } from './apply-conditions';
 import { parseFilter } from './parse-filter';
+import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { useRelationsStore } from '@/stores/relations';
 import type { ContentVersionMaybeNew } from '@/types/versions';
 
@@ -22,8 +23,14 @@ export function validateItem(
 	const validationRules: LogicalFilterAND = { _and: [] };
 	const updatedItem = cloneDeep(item);
 
+	// Read parent form values from the global context stack so conditions
+	// referencing $form (e.g. to hide a field inside a nested drawer) produce
+	// the same field shape here as in v-form.vue. Without this, a field hidden
+	// by a $form-based condition could still trigger a `required` error on save.
+	const parentFormValues = useParentFormContext().value;
+
 	const fieldsWithConditions = fields.map((field) => {
-		const conditionedField = applyConditions(item, field, currentVersion);
+		const conditionedField = applyConditions(item, field, currentVersion, parentFormValues);
 
 		return conditionedField;
 	});

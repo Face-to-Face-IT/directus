@@ -2,7 +2,14 @@ import { DeepPartial, Field } from '@directus/types';
 import { createTestingPinia } from '@pinia/testing';
 import { setActivePinia } from 'pinia';
 import { beforeEach, expect, test, vi } from 'vitest';
+import { computed, type ComputedRef } from 'vue';
 import { validateItem } from '@/utils/validate-item';
+
+const parentFormContext = vi.hoisted(() => ({
+	useParentFormContext: vi.fn((): ComputedRef<Record<string, any> | null> => computed(() => null)),
+}));
+
+vi.mock('@/composables/use-parent-form-context', () => parentFormContext);
 
 vi.mock('@/utils/parse-filter', () => ({
 	parseFilter: (filter: any) => {
@@ -126,4 +133,75 @@ test('Custom validation with $NOW dynamic variable does not throw', () => {
 	const result = validateItem({ publish_date: futureDate }, fieldsWithValidation as Field[], true, true);
 
 	expect(result.length).toEqual(0);
+});
+
+test('$form-based condition hides required field — no validation error when parent form context present', () => {
+	// Simulate being inside a parent drawer by returning a non-null parent form context.
+	// The condition rule checks "$form._nnull: true", which matches when $form is non-null.
+	parentFormContext.useParentFormContext.mockReturnValue(computed(() => ({ id: 1, title: 'Parent item' })));
+
+	const fieldsWithFormCondition: DeepPartial<Field>[] = [
+		{
+			field: 'category',
+			collection: 'notes',
+			type: 'string',
+			name: 'Category',
+			meta: {
+				required: true,
+				hidden: false,
+				conditions: [
+					{
+						name: 'Hide in drawer',
+						rule: { $form: { _nnull: true } },
+						hidden: true,
+						readonly: false,
+						options: null,
+						required: false,
+					},
+				],
+			},
+			schema: null,
+		},
+	];
+
+	// category is null — would normally fail "required" validation.
+	// But the $form condition matches (parent form context is non-null), hiding the field.
+	const result = validateItem({ category: null }, fieldsWithFormCondition as Field[], true);
+
+	expect(result.length).toEqual(0);
+});
+
+test('$form-based condition does NOT hide required field when parent form context is null (top-level)', () => {
+	// No parent form context — $form is null, so { $form: { _nnull: true } } doesn't match.
+	parentFormContext.useParentFormContext.mockReturnValue(computed(() => null));
+
+	const fieldsWithFormCondition: DeepPartial<Field>[] = [
+		{
+			field: 'category',
+			collection: 'notes',
+			type: 'string',
+			name: 'Category',
+			meta: {
+				required: true,
+				hidden: false,
+				conditions: [
+					{
+						name: 'Hide in drawer',
+						rule: { $form: { _nnull: true } },
+						hidden: true,
+						readonly: false,
+						options: null,
+						required: false,
+					},
+				],
+			},
+			schema: null,
+		},
+	];
+
+	// category is null — $form is null so condition doesn't match, field stays required.
+	const result = validateItem({ category: null }, fieldsWithFormCondition as Field[], true);
+
+	expect(result.length).toBeGreaterThan(0);
+	expect(result[0]!.field).toBe('category');
 });
