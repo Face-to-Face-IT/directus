@@ -2,7 +2,7 @@
 import { Filter } from '@directus/types';
 import { deepMap } from '@directus/utils';
 import { render } from 'micromustache';
-import { computed, inject, ref, toRefs } from 'vue';
+import { computed, inject, ref, toRef, toRefs } from 'vue';
 import api from '@/api';
 import VButton from '@/components/v-button.vue';
 import VCardActions from '@/components/v-card-actions.vue';
@@ -23,6 +23,7 @@ import VRemove from '@/components/v-remove.vue';
 import VSkeletonLoader from '@/components/v-skeleton-loader.vue';
 import VTextOverflow from '@/components/v-text-overflow.vue';
 import VUpload from '@/components/v-upload.vue';
+import { useMimeTypeFilter } from '@/composables/use-mime-type-filter';
 import { useRelationM2O } from '@/composables/use-relation-m2o';
 import { useRelationPermissionsM2O } from '@/composables/use-relation-permissions';
 import { RelationQuerySingle, useRelationSingle } from '@/composables/use-relation-single';
@@ -52,6 +53,7 @@ const props = withDefaults(
 		field: string;
 		enableCreate?: boolean;
 		enableSelect?: boolean;
+		allowedMimeTypes?: string[];
 	}>(),
 	{
 		enableCreate: true,
@@ -69,6 +71,8 @@ const value = computed({
 		emit('input', value);
 	},
 });
+
+const { mimeTypeFilter, combinedAcceptString } = useMimeTypeFilter(toRef(props, 'allowedMimeTypes'));
 
 const query = ref<RelationQuerySingle>({
 	fields: ['id', 'title', 'type', 'filename_download', 'modified_on'],
@@ -128,7 +132,7 @@ const edits = computed(() => {
 const values = inject('values', ref<Record<string, unknown>>({}));
 
 const customFilter = computed(() => {
-	return parseFilter(
+	const filter = parseFilter(
 		deepMap(props.filter, (val: unknown) => {
 			if (val && typeof val === 'string') {
 				return render(val, values.value);
@@ -137,6 +141,13 @@ const customFilter = computed(() => {
 			return val;
 		}),
 	);
+
+	if (!mimeTypeFilter.value) return filter;
+	if (!filter) return mimeTypeFilter.value;
+
+	return {
+		_and: [filter, mimeTypeFilter.value],
+	};
 });
 
 const internalDisabled = computed(() => {
@@ -183,6 +194,7 @@ function useURLImport() {
 				data: {
 					folder: props.folder,
 				},
+				options: { filterMimeType: props.allowedMimeTypes },
 			});
 
 			file.value = response.data.data;
@@ -275,6 +287,11 @@ function useURLImport() {
 
 			<VList>
 				<template v-if="file">
+					<VListItem clickable :href="getAssetUrl(file.id)" target="_blank">
+						<VListItemIcon><VIcon name="open_in_new" /></VListItemIcon>
+						<VListItemContent>{{ $t('open_file_in_tab') }}</VListItemContent>
+					</VListItem>
+
 					<VListItem clickable :download="file.filename_download" :href="getAssetUrl(file.id, { isDownload: true })">
 						<VListItemIcon><VIcon name="get_app" /></VListItemIcon>
 						<VListItemContent>{{ $t('download_file') }}</VListItemContent>
@@ -335,7 +352,7 @@ function useURLImport() {
 			<VCard>
 				<VCardTitle>{{ $t('upload_from_device') }}</VCardTitle>
 				<VCardText>
-					<VUpload from-url :folder="folder" @input="onUpload" />
+					<VUpload from-url :folder="folder" :accept="combinedAcceptString" @input="onUpload" />
 				</VCardText>
 				<VCardActions>
 					<VButton secondary @click="activeDialog = null">{{ $t('cancel') }}</VButton>
@@ -346,6 +363,7 @@ function useURLImport() {
 		<DrawerFiles
 			v-if="activeDialog === 'choose'"
 			:folder="folder"
+			:field="field"
 			:active="activeDialog === 'choose'"
 			:filter="customFilter"
 			@update:active="activeDialog = null"
@@ -406,7 +424,7 @@ function useURLImport() {
 .item-actions {
 	@include mixins.list-interface-item-actions;
 
-	padding-inline-start: 8px;
+	padding-inline-start: 0.4375rem;
 }
 
 .preview {
@@ -415,9 +433,9 @@ function useURLImport() {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	inline-size: 40px;
-	block-size: 40px;
-	margin-inline-start: -8px;
+	inline-size: 2.25rem;
+	block-size: 2.25rem;
+	margin-inline-start: -0.4375rem;
 	overflow: hidden;
 	background-color: var(--theme--background-normal);
 	border-radius: var(--theme--border-radius);
@@ -433,7 +451,7 @@ function useURLImport() {
 	}
 
 	&.is-svg {
-		padding: 4px;
+		padding: 0.25rem;
 
 		img {
 			object-fit: contain;
@@ -449,7 +467,7 @@ function useURLImport() {
 .extension {
 	color: var(--theme--primary);
 	font-weight: 600;
-	font-size: 11px;
+	font-size: 0.625rem;
 	text-transform: uppercase;
 }
 </style>

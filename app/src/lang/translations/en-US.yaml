@@ -94,6 +94,7 @@ select_earlier_revision_to_restore: Select an earlier revision to consider resto
 enter_a_name: Enter a Name...
 duplicate_field: Duplicate Field
 half_width: Half Width
+third_width: Third Width
 full_width: Full Width
 group: Group
 popular: Popular
@@ -556,6 +557,31 @@ related_collection: Related Collection
 related_collections: Related Collections
 translations_collection: Translation Collection
 languages_collection: Languages Collection
+enable_translations: Enable Translations
+manage_translation_fields: Add Translation Fields
+fields_to_translate: Fields to Translate
+fields_to_add_to_translations: Fields to Add to Translations
+translations_collection_name: Translations collection name
+translations_already_enabled: Translations enabled
+translations_manage_helper_description: You can add more fields to translate from this collection.
+translations_copy_data_note: Fields are copied to the translations collection. Existing data is not migrated.
+add_fields: Add Fields
+show_advanced_options: Show Relationship Details
+hide_advanced_options: Hide Relationship Details
+translations_field_name_required: All translation field names are required.
+translations_foreign_key_name_conflict: Parent and language foreign key names must be different.
+translations_duplicate_field_names: Translation field names must be unique.
+translation_configuration: Translation Configuration
+translations_invalid_config_warning:
+  '{count} translation config could not be resolved and will remain read-only | {count} translation configs could not be
+  resolved and will remain read-only'
+translations_collection_already_exists: This translations collection already exists and will be reused
+translations_fields_up_to_date: All eligible fields are already present in the translations collection.
+translations_preview_collections: Collections
+translations_preview_fields: Fields
+translations_preview_relations: Relations
+ungrouped: Ungrouped
+translations_enable_helper_description: Translate content into multiple languages.
 import_data_input_placeholder: CSV or JSON...
 import_data_button: Start Import
 import_data_indeterminate: Importing Data...
@@ -1113,10 +1139,19 @@ deployment:
       settings_warning:
         Changing credentials or team ID may affect your selected projects if they are no longer accessible with the new
         configuration.
+      account_type:
+        label: Account Type
+        hint: Choose Team to use a Team ID, or Personal account to use your Vercel username for deployment links.
+        team: Team
+        personal: Personal account
       team_id:
         label: Team ID
-        hint: Required for team accounts, leave empty for personal accounts.
+        hint: Required for team accounts. Find it in your Vercel team settings.
         placeholder: team_xxxxxxxxxxxxx
+      username:
+        label: Username
+        hint: Your Vercel username for personal accounts. Find it in your Vercel account URL (vercel.com/username).
+        placeholder: your-username
     netlify:
       name: Netlify
       settings_warning:
@@ -1154,6 +1189,7 @@ deployment:
       no_logs: No logs available
       download_logs: Download logs
       open_deployment: Visit
+      open_in_provider: Open in {provider}
   no_providers: No Deployment Providers
   no_providers_copy: Configure a deployment provider in the settings to get started.
   select_provider: Select a Provider
@@ -1328,6 +1364,7 @@ settings_appearance: Appearance
 settings_ai: AI
 model_context_protocol: Model Context Protocol
 ai_assistant: AI Assistant
+external_mcp_servers: External MCP Servers
 ai_disabled_by_env: AI Assistant features have been disabled via environment variable.
 mcp_disabled_by_env: MCP features have been disabled via environment variable.
 settings_flows: Flows
@@ -1625,6 +1662,10 @@ fields:
     ai_provider_options: Provider Options
     ai_provider_options_note: Provider-specific options passed to AI endpoints.
     ai_header_name: Header
+    external_mcp_notice:
+      'Connect to external MCP servers to extend AI Chat with additional tools. External servers provide tools that can
+      be used in AI conversations. <a href="https://directus.io/docs/guides/ai/external-mcp" target="_blank">Learn more
+      about connecting external MCP servers.</a>'
 
   directus_shares:
     name: Name
@@ -1688,6 +1729,16 @@ field_options:
     basemaps_style: Mapbox Style
     files_divider_title: Files & Thumbnails
     overrides_divider_title: App Overrides
+    mcp_server_id: Server ID
+    mcp_tool_approval: Tool Approval
+    mcp_tool_approval_always: Always Allow
+    mcp_tool_approval_ask: Ask Before Running
+    mcp_tool_approval_disabled: Disabled
+    mcp_server_auth: Authentication
+    mcp_auth_bearer: Bearer Token
+    mcp_auth_basic: Basic Auth
+    mcp_auth_token: Auth Token
+    mcp_auth_token_placeholder: Enter bearer token
   directus_activity:
     login: Login
     logout: Logout
@@ -1699,6 +1750,8 @@ field_options:
     only_track_activity: Only Track Activity
     do_not_track_anything: Do Not Track Anything
     collection_setup: Collection Setup
+    collection_naming_translations_note:
+      "Override the collection's display name in the app based on the user's language."
     note_placeholder: A description of this collection...
     hidden_label: Hide within the App
     singleton: Treat as single object
@@ -1718,6 +1771,7 @@ field_options:
     accountability_divider: Accountability
     duplication_divider: Duplication
     preview_divider: Preview
+    content_translations_divider: Content Translations
     content_versioning_divider: Content Versioning
     enable_versioning: Enable Versioning
   directus_files:
@@ -1846,9 +1900,12 @@ ai:
     disabled: Disabled
   enabled_tools: Enabled Tools
   disabled_tools: Disabled Tools
+  external_tools: External Tools
+  loading_external_tools: Loading external tools...
   tool_descriptions:
     items: Create, read, update, and delete content
     files: Search and manage files
+    file-content: Read text content from files (PDF, text, code, etc.)
     folders: Create and organize folders
     flows: Create and update flows
     trigger-flow: Run manually triggered flows
@@ -1862,6 +1919,7 @@ ai_tools:
   read_form_values: Read Form Values
   items: Items
   files: Files
+  file-content: File Content
   folders: Folders
   flows: Flows
   trigger-flow: Trigger Flow
@@ -2902,6 +2960,7 @@ series_grouping: Series Grouping
 date_precision: Date Precision
 export_dashboard: Export Dashboard
 duplicate_dashboard: Duplicate Dashboard
+duplicate_policy: Duplicate Policy
 search_dashboard: Search Dashboard...
 search_flow: Search Flow...
 percent: Percent

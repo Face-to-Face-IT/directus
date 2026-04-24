@@ -218,13 +218,13 @@ function isAlterations<T extends Item>(value: any): value is Alterations<T> {
 				:loading="saving"
 				:disabled="!hasEdits"
 				icon="check"
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			>
 				<template #append-outer>
 					<SaveOptions
 						v-if="hasEdits"
 						:disabled-options="['save-as-copy']"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-and-add-new="saveAndAddNew"
 						@discard-and-stay="discardAndStay"
 					/>

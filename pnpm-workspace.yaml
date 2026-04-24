@@ -8,10 +8,13 @@ packages:
 
 catalog:
   '@ai-sdk/anthropic': 3.0.9
+  '@ai-sdk/devtools': 0.0.13
   '@ai-sdk/google': 3.0.6
   '@ai-sdk/openai': 3.0.7
   '@ai-sdk/openai-compatible': 2.0.4
   '@ai-sdk/vue': 3.0.25
+  '@braintrust/otel': 0.2.0
+  '@langfuse/otel': 4.0.0
   '@authenio/samlify-node-xmllint': 2.0.0
   '@aws-sdk/client-s3': 3.928.0
   '@aws-sdk/client-sesv2': 3.928.0
@@ -23,7 +26,7 @@ catalog:
   '@directus/schema-builder': workspace:*
   '@directus/tsconfig': 3.0.0
   '@directus/types': workspace:*
-  '@directus/vue-split-panel': 0.8.4
+  '@directus/vue-split-panel': 0.8.6
   '@editorjs/attaches': 1.3.2
   '@editorjs/checklist': 1.6.0
   '@editorjs/code': 2.9.3
@@ -61,6 +64,29 @@ catalog:
   '@netlify/api': 14.0.14
   '@ngneat/falso': 8.0.2
   '@npm/types': 2.1.0
+  '@opentelemetry/api': 1.9.0
+  '@opentelemetry/api-logs': 0.57.0
+  '@opentelemetry/auto-instrumentations-node': 0.50.0
+  '@opentelemetry/auto-instrumentations-web': 0.40.0
+  '@opentelemetry/context-zone': 1.30.0
+  '@opentelemetry/core': 1.30.0
+  '@opentelemetry/exporter-logs-otlp-http': 0.57.0
+  '@opentelemetry/exporter-metrics-otlp-http': 0.57.0
+  '@opentelemetry/exporter-trace-otlp-http': 0.57.0
+  '@opentelemetry/exporter-trace-otlp-proto': 0.57.0
+  '@opentelemetry/instrumentation': 0.57.0
+  '@opentelemetry/instrumentation-document-load': 0.40.0
+  '@opentelemetry/instrumentation-fetch': 0.57.0
+  '@opentelemetry/instrumentation-user-interaction': 0.40.0
+  '@opentelemetry/instrumentation-xml-http-request': 0.57.0
+  '@opentelemetry/resources': 1.30.0
+  '@opentelemetry/sdk-logs': 0.57.0
+  '@opentelemetry/sdk-metrics': 1.30.0
+  '@opentelemetry/sdk-node': 0.57.0
+  '@opentelemetry/sdk-trace-base': 1.30.0
+  '@opentelemetry/sdk-trace-node': 2.1.0
+  '@opentelemetry/sdk-trace-web': 1.30.0
+  '@opentelemetry/semantic-conventions': 1.28.0
   '@pinia/testing': 1.0.3
   '@pnpm/logger': 1001.0.1
   '@pnpm/workspace.find-packages': 1000.0.43
@@ -75,6 +101,8 @@ catalog:
   '@rollup/plugin-virtual': 3.0.2
   '@rollup/plugin-yaml': 4.1.2
   '@sesamecare-oss/redlock': 1.4.0
+  '@sentry/node': 10.42.0
+  '@sentry/profiling-node': 10.42.0
   '@shopify/semaphore': 3.1.0
   '@sinclair/typebox': 0.34.41
   '@sindresorhus/slugify': 2.2.1
@@ -147,8 +175,8 @@ catalog:
   argon2: 0.44.0
   async: 3.2.6
   async-mutex: 0.5.0
-  axios: 1.12.2
-  axios-cache-interceptor: 1.8.3
+  axios: 1.13.5
+  axios-cache-interceptor: 1.11.1
   base-64: 1.0.0
   boxen: 8.0.1
   busboy: 1.6.0
@@ -235,7 +263,7 @@ catalog:
   micromustache: 8.0.3
   mime: 4.1.0
   mime-types: 3.0.1
-  minimatch: 10.1.1
+  minimatch: 10.2.3
   mitt: 3.0.1
   mnemonist: 0.40.3
   ms: 2.1.3
@@ -255,9 +283,10 @@ catalog:
   p-limit: 7.2.0
   p-queue: 8.1.0
   papaparse: 5.5.3
+  pdf-parse: 2.4.5
   pg: 8.16.3
   pinia: 2.3.1
-  pino: 9.7.0
+  pino: 9.10.0
   pino-http: 10.5.0
   pino-http-print: 3.1.0
   pino-pretty: 13.1.2
@@ -267,13 +296,13 @@ catalog:
   prom-client: 15.1.3
   proxy-addr: 2.0.7
   qrcode: 1.5.4
-  qs: 6.14.1
+  qs: 6.14.2
   rate-limiter-flexible: 7.2.0
   redlock: 5.0.0-beta.2
-  reka-ui: 2.8.0
+  reka-ui: 2.8.2
   rimraf: 6.1.0
   rolldown: 1.0.0-beta.31
-  rollup: 4.52.5
+  rollup: 4.59.0
   rollup-plugin-esbuild: 6.2.1
   rollup-plugin-node-externals: 8.1.2
   rollup-plugin-styler: 2.0.0
@@ -295,7 +324,7 @@ catalog:
   stylelint-use-logical: 2.1.2
   swagger-cli: 4.0.4
   swagger-ui-watcher: 2.1.14
-  tar: 7.5.4
+  tar: 7.5.8
   tedious: 18.6.1
   tinymce: 6.8.6
   tmp: 0.2.5
@@ -304,12 +333,13 @@ catalog:
   tus-js-client: 4.3.1
   typescript: 5.9.3
   typescript-eslint: 8.46.4
-  undici: 7.16.0
+  undici: 7.18.2
   universal-cookie: 8.0.1
+  unplugin-vue: 7.1.1
   unplugin-yaml: 3.0.7
   update-check: 1.5.4
   uuid: 11.1.0
-  vite: 7.1.12
+  vite: 7.2.2
   vite-plugin-dts: 4.5.4
   vite-plugin-vue-devtools: 7.7.2
   vitest: 3.2.4
@@ -319,6 +349,7 @@ catalog:
   vue-tsc: 3.1.3
   vue-virtual-scroller: 2.0.0-beta.8
   vuedraggable: 4.1.0
+  web-vitals: 5.1.0
   wellknown: 0.5.0
   ws: 8.18.3
   zod: 4.1.12
@@ -336,6 +367,7 @@ onlyBuiltDependencies:
   - esbuild
   - isolated-vm
   - oracledb
+  - '@sentry/profiling-node'
   - sharp
   - sqlite3
   - vue-demi

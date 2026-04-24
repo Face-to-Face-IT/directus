@@ -13,7 +13,7 @@ defineProps<{
 }>();
 
 defineEmits<{
-	(e: 'save-and-stay'): void;
+	(e: 'save-and-quit'): void;
 	(e: 'save-and-add-new'): void;
 	(e: 'save-as-copy'): void;
 	(e: 'discard-and-stay'): void;
@@ -27,10 +27,9 @@ defineEmits<{
 		</template>
 
 		<VList>
-			<VListItem v-if="!disabledOptions?.includes('save-and-stay')" clickable @click="$emit('save-and-stay')">
-				<VListItemIcon><VIcon name="check" /></VListItemIcon>
-				<VListItemContent>{{ $t('save_and_stay') }}</VListItemContent>
-				<VListItemHint>{{ translateShortcut(['meta', 's']) }}</VListItemHint>
+			<VListItem v-if="!disabledOptions?.includes('save-and-quit')" clickable @click="$emit('save-and-quit')">
+				<VListItemIcon><VIcon name="exit_to_app" /></VListItemIcon>
+				<VListItemContent>{{ $t('save_and_quit') }}</VListItemContent>
 			</VListItem>
 			<VListItem v-if="!disabledOptions?.includes('save-and-add-new')" clickable @click="$emit('save-and-add-new')">
 				<VListItemIcon><VIcon name="add" /></VListItemIcon>

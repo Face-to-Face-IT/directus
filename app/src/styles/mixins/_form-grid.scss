@@ -1,6 +1,6 @@
 @mixin form-grid {
 	display: grid;
-	grid-template-columns: [start] minmax(0, 1fr) [half] minmax(0, 1fr) [full];
+	grid-template-columns: [start] repeat(6, minmax(0, 1fr)) [full];
 	gap: var(--theme--form--row-gap) var(--theme--form--column-gap);
 	container-type: inline-size;
 
@@ -11,7 +11,7 @@
 	/* stylelint-disable-next-line */
 	&.with-fill {
 		grid-template-columns:
-			[start] minmax(0, var(--form-column-max-width)) [half] minmax(0, var(--form-column-max-width))
+			[start] repeat(6, minmax(0, calc(var(--form-column-max-width) / 3)))
 			[full] 1fr [fill];
 	}
 
@@ -19,33 +19,13 @@
 		margin-block-end: 8px;
 	}
 
-	.field {
-		grid-column: start / fill;
-
-		@container (inline-size >= 556px) {
-			grid-column: start / full;
-		}
-	}
-
+	// -- Default (narrow): everything stacks full-width --
+	.field,
+	.third,
 	.half,
 	.half-left,
-	.half-space {
-		grid-column: start / fill;
-
-		@container (inline-size >= 556px) {
-			grid-column: start / half;
-		}
-	}
-
-	.half + .half,
-	.half-right {
-		grid-column: start / fill;
-
-		@container (inline-size >= 556px) {
-			grid-column: half / full;
-		}
-	}
-
+	.half-space,
+	.half-right,
 	.full {
 		grid-column: start / fill;
 
@@ -56,5 +36,23 @@
 
 	.fill {
 		grid-column: start / fill;
+	}
+
+	// -- >= 556px: enable half-width (2-col) and third (3-col) --
+	@container (inline-size >= 556px) {
+		.third {
+			grid-column: span 2;
+		}
+
+		.half,
+		.half-left,
+		.half-space {
+			grid-column: span 3;
+		}
+
+		.half + .half,
+		.half-right {
+			grid-column: span 3;
+		}
 	}
 }

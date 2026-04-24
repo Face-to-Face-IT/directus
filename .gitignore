@@ -56,4 +56,10 @@ TODO
 .claude/*
 !.claude/CLAUDE.md
 !.claude/skills/
-excalidraw.log
+
+# Packer
+.secrets
+*.log
+
+# Local tooling
+.dmux*

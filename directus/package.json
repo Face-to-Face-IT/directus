@@ -1,6 +1,6 @@
 {
 	"name": "directus",
-	"version": "11.15.4",
+	"version": "11.16.1",
 	"description": "Directus is a real-time API and App dashboard for managing SQL database content",
 	"keywords": [
 		"directus",
@@ -55,7 +55,18 @@
 	},
 	"dependencies": {
 		"@directus/api": "workspace:*",
-		"@directus/update-check": "workspace:*"
+		"@directus/update-check": "workspace:*",
+		"@opentelemetry/api": "catalog:",
+		"@opentelemetry/api-logs": "catalog:",
+		"@opentelemetry/auto-instrumentations-node": "catalog:",
+		"@opentelemetry/exporter-logs-otlp-http": "catalog:",
+		"@opentelemetry/exporter-metrics-otlp-http": "catalog:",
+		"@opentelemetry/exporter-trace-otlp-proto": "catalog:",
+		"@opentelemetry/resources": "catalog:",
+		"@opentelemetry/sdk-logs": "catalog:",
+		"@opentelemetry/sdk-metrics": "catalog:",
+		"@opentelemetry/sdk-node": "catalog:",
+		"@opentelemetry/semantic-conventions": "catalog:"
 	},
 	"engines": {
 		"node": ">=22"

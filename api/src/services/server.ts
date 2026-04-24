@@ -74,7 +74,7 @@ export class ServerService {
 			info['ai_enabled'] = toBoolean(env['AI_ENABLED'] ?? true);
 
 			info['files'] = {
-				mimeTypeAllowList: env['FILES_MIME_TYPE_ALLOW_LIST'],
+				mimeTypeAllowList: toArray(env['FILES_MIME_TYPE_ALLOW_LIST']),
 			};
 
 			if (env['RATE_LIMITER_ENABLED']) {
@@ -455,6 +455,10 @@ export class ServerService {
 		}
 
 		async function testEmail(): Promise<Record<string, HealthCheck[]>> {
+			if (env['EMAIL_VERIFY_SETUP'] === false) {
+				return {};
+			}
+
 			const checks: Record<string, HealthCheck[]> = {
 				'email:connection': [
 					{

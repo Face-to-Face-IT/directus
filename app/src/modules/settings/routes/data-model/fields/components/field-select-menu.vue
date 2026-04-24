@@ -64,6 +64,15 @@ const duplicable = computed(() => localType.value === 'standard' && isPrimaryKey
 
 			<VListItem
 				clickable
+				:disabled="field.meta?.width === 'third' || localType === 'group'"
+				@click="$emit('setWidth', 'third')"
+			>
+				<VListItemIcon><VIcon name="view_column" /></VListItemIcon>
+				<VListItemContent>{{ $t('third_width') }}</VListItemContent>
+			</VListItem>
+
+			<VListItem
+				clickable
 				:disabled="field.meta?.width === 'half' || localType === 'group'"
 				@click="$emit('setWidth', 'half')"
 			>

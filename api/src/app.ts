@@ -12,6 +12,9 @@ import express from 'express';
 import { merge } from 'lodash-es';
 import qs from 'qs';
 import { aiChatRouter } from './ai/chat/router.js';
+import { initAIDevTools } from './ai/devtools/index.js';
+import { aiFilesRouter } from './ai/files/router.js';
+import { initAITelemetry } from './ai/telemetry/index.js';
 import { registerAuthProviders } from './auth.js';
 import accessRouter from './controllers/access.js';
 import activityRouter from './controllers/activity.js';
@@ -20,6 +23,7 @@ import authRouter from './controllers/auth.js';
 import collectionsRouter from './controllers/collections.js';
 import commentsRouter from './controllers/comments.js';
 import dashboardsRouter from './controllers/dashboards.js';
+import deploymentWebhookRouter from './controllers/deployment-webhooks.js';
 import deploymentRouter from './controllers/deployment.js';
 import extensionsRouter from './controllers/extensions.js';
 import fieldsRouter from './controllers/fields.js';
@@ -55,7 +59,7 @@ import {
 	validateDatabaseExtensions,
 	validateMigrations,
 } from './database/index.js';
-import { registerDeploymentDrivers } from './deployment.js';
+import { ensureDeploymentWebhooks, registerDeploymentDrivers } from './deployment.js';
 import emitter from './emitter.js';
 import { getExtensionManager } from './extensions/index.js';
 import { getFlowManager } from './flows.js';
@@ -67,6 +71,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import extractToken from './middleware/extract-token.js';
 import rateLimiterGlobal from './middleware/rate-limiter-global.js';
 import rateLimiter from './middleware/rate-limiter-ip.js';
+import requestCounter from './middleware/request-counter.js';
 import sanitizeQuery from './middleware/sanitize-query.js';
 import schema from './middleware/schema.js';
 import metricsSchedule from './schedules/metrics.js';
@@ -74,6 +79,8 @@ import projectSchedule from './schedules/project.js';
 import retentionSchedule from './schedules/retention.js';
 import telemetrySchedule from './schedules/telemetry.js';
 import tusSchedule from './schedules/tus.js';
+import { getSentryFrontendEmbed } from './telemetry/sentry-frontend.js';
+import { setupSentryExpressHandler } from './telemetry/sentry.js';
 import { getConfigFromEnv } from './utils/get-config-from-env.js';
 import { Url } from './utils/url.js';
 import { validateStorage } from './utils/validate-storage.js';
@@ -117,6 +124,7 @@ export default async function createApp(): Promise<express.Application> {
 
 	await registerAuthProviders();
 	registerDeploymentDrivers();
+	await ensureDeploymentWebhooks();
 
 	const extensionManager = getExtensionManager();
 	const flowManager = getFlowManager();
@@ -212,6 +220,9 @@ export default async function createApp(): Promise<express.Application> {
 		(
 			express.json({
 				limit: env['MAX_PAYLOAD_SIZE'] as string,
+				verify: (req, _res, buf) => {
+					(req as any).rawBody = buf;
+				},
 			}) as RequestHandler
 		)(req, res, (err: any) => {
 			if (err) {
@@ -251,18 +262,24 @@ export default async function createApp(): Promise<express.Application> {
 
 		const htmlWithVars = html
 			.replace(/<base \/>/, `<base href="${adminUrl.toString({ rootRelative: true })}/" />`)
-			.replace('<!-- directus-embed-head -->', embeds.head)
+			.replace('<!-- directus-embed-head -->', getSentryFrontendEmbed() + embeds.head)
 			.replace('<!-- directus-embed-body -->', embeds.body);
 
 		const sendHtml = (_req: Request, res: Response) => {
 			res.setHeader('Cache-Control', 'no-cache');
 			res.setHeader('Vary', 'Origin, Cache-Control');
+			res.setHeader('Document-Policy', 'js-profiling');
 			res.send(htmlWithVars);
 		};
 
-		const setStaticHeaders = (res: ServerResponse) => {
+		const setStaticHeaders = (res: ServerResponse, filePath: string) => {
 			res.setHeader('Cache-Control', 'max-age=31536000, immutable');
 			res.setHeader('Vary', 'Origin, Cache-Control');
+
+			// Allow sentry.io to load fonts/CSS for Session Replay rendering fidelity
+			if (/\.(woff2?|ttf|otf|eot|css)$/.test(filePath)) {
+				res.setHeader('Access-Control-Allow-Origin', '*');
+			}
 		};
 
 		app.get('/admin', sendHtml);
@@ -281,11 +298,16 @@ export default async function createApp(): Promise<express.Application> {
 
 	app.get('/server/ping', (_req, res) => res.send('pong'));
 
+	// Public webhook endpoint (signature-verified by the provider)
+	app.use('/deployments/webhooks', deploymentWebhookRouter);
+
 	app.use(authenticate);
 
 	app.use(schema);
 
 	app.use(sanitizeQuery);
+
+	app.use(requestCounter);
 
 	app.use(cache);
 
@@ -321,7 +343,10 @@ export default async function createApp(): Promise<express.Application> {
 	}
 
 	if (toBoolean(env['AI_ENABLED']) === true) {
+		await initAIDevTools();
+		await initAITelemetry();
 		app.use('/ai/chat', aiChatRouter);
+		app.use('/ai/files', aiFilesRouter);
 	}
 
 	if (env['METRICS_ENABLED'] === true) {
@@ -352,6 +377,8 @@ export default async function createApp(): Promise<express.Application> {
 	await emitter.emitInit('routes.custom.after', { app });
 
 	app.use(notFoundHandler);
+
+	setupSentryExpressHandler(app);
 	app.use(errorHandler);
 
 	await emitter.emitInit('routes.after', { app });

@@ -55,6 +55,7 @@ import RevisionsSidebarDetail from '@/views/private/components/revisions-sidebar
 import SaveOptions from '@/views/private/components/save-options.vue';
 import SharesSidebarDetail from '@/views/private/components/shares-sidebar-detail.vue';
 import PrivateViewResizeHandle from '@/views/private/private-view/components/private-view-resize-handle.vue';
+import { resolveUrlPrefillData } from '../composables/use-url-prefill';
 
 interface Props {
 	collection: string;
@@ -70,6 +71,7 @@ const props = withDefaults(defineProps<Props>(), {
 const { t, te } = useI18n();
 
 const router = useRouter();
+const route = useRoute();
 const { collectionRoute, backRoute } = useItemNavigation();
 
 const userStore = useUserStore();
@@ -121,6 +123,24 @@ const {
 	getItem,
 	validationErrors: itemValidationErrors,
 } = useItem(collection, primaryKey, query);
+
+// Pre-populate edits from URL query parameters when creating a new item
+// e.g., /admin/content/articles/+?status=draft&category=news
+// For relational fields, use field.lookupField=value syntax:
+// e.g., /admin/content/case/+?program.abbreviation=ABC
+watch(
+	[isNew, () => route.query],
+	async ([newIsNew, newQuery]) => {
+		if (newIsNew && newQuery) {
+			const prefillData = await resolveUrlPrefillData(newQuery, collection.value, edits.value);
+
+			if (Object.keys(prefillData).length > 0) {
+				edits.value = { ...prefillData, ...edits.value };
+			}
+		}
+	},
+	{ immediate: true },
+);
 
 const toolsStore = useAiToolsStore();
 
@@ -371,10 +391,9 @@ const livePreviewSize = computed({
 
 provide('live-preview-active', livePreviewActive);
 
-const { visualEditingEnabled, visualEditorUrls, visualModuleEnabled } = useVisualEditing({
+const { visualEditingEnabled, visualModuleEnabled } = useVisualEditing({
 	previewUrl,
 	isNew,
-	currentVersion,
 });
 
 watch(previewUrl, (url) => {
@@ -478,7 +497,7 @@ async function saveVersionAction(action: 'main' | 'stay' | 'quit') {
 	if (isSavable.value === false) return;
 
 	try {
-		await saveVersion(edits, ref(item.value ?? {}));
+		await saveVersion(edits, ref(item.value ?? {}), actualPrimaryKey.value);
 		edits.value = {};
 
 		if (action === 'main') {
@@ -620,8 +639,6 @@ const shouldShowVersioning = computed(
 );
 
 function useItemNavigation() {
-	const route = useRoute();
-
 	const collectionRoute = computed(() => {
 		const collectionPath = getCollectionRoute(props.collection);
 		if (route.query.bookmark) return `${collectionPath}?bookmark=${route.query.bookmark}`;
@@ -801,7 +818,7 @@ function useItemNavigation() {
 				:loading="saving"
 				:disabled="!isSavable"
 				small
-				@click="saveAndQuit"
+				@click="saveAndStay"
 			>
 				<VIcon name="check" small />
 
@@ -809,7 +826,7 @@ function useItemNavigation() {
 					<SaveOptions
 						v-if="collectionInfo.meta && collectionInfo.meta.singleton !== true && isSavable === true"
 						:disabled-options="disabledOptions"
-						@save-and-stay="saveAndStay"
+						@save-and-quit="saveAndQuit"
 						@save-and-add-new="saveAndAddNew"
 						@save-as-copy="saveAsCopyAndNavigate"
 						@discard-and-stay="discardAndStay"
@@ -901,8 +918,8 @@ function useItemNavigation() {
 				<LivePreview
 					v-if="livePreviewActive && previewUrl"
 					:url="previewUrl"
+					:version="currentVersion"
 					:can-enable-visual-editing="visualEditingEnabled"
-					:visual-editor-urls="visualEditorUrls"
 					:show-open-in-visual-editor="visualModuleEnabled"
 					:is-full-width="livePreviewFullWidth"
 					@new-window="livePreviewMode = 'popup'"
@@ -995,6 +1012,8 @@ function useItemNavigation() {
 </template>
 
 <style lang="scss" scoped>
+@use '@/styles/mixins';
+
 .action-delete {
 	--v-button-background-color-hover: var(--theme--danger) !important;
 	--v-button-color-hover: var(--white) !important;
@@ -1012,23 +1031,17 @@ function useItemNavigation() {
 }
 
 .title-loader {
-	inline-size: 260px;
+	inline-size: 14.625rem;
 }
 
 :deep(.type-title) {
 	min-inline-size: 0;
-
-	.render-template {
-		img {
-			block-size: 20px;
-		}
-	}
 }
 
 .headline-wrapper {
 	display: flex;
 	align-items: center;
-	gap: 0.25rem;
+	gap: 0.1875rem;
 }
 
 .version-more-options.v-icon {
@@ -1050,21 +1063,21 @@ function useItemNavigation() {
 
 		.headline {
 			opacity: 1;
-			inset-block-start: 3px;
+			inset-block-start: 0.1875rem;
 		}
 
 		.title {
-			inset-block-start: 4px;
+			inset-block-start: 0.25rem;
 		}
 
-		@media (width > 640px) {
+		@include mixins.breakpoint-up('sm') {
 			opacity: 1;
 		}
 	}
 }
 
 .headline-wrapper.has-version-menu .headline-breadcrumb {
-	@media (max-width: 600px) {
+	@media (width < 33.75rem) {
 		display: none;
 	}
 }
@@ -1083,7 +1096,7 @@ function useItemNavigation() {
 	background-color: var(--theme--background-subdued);
 	overflow-y: auto;
 
-	@media (width > 640px) {
+	@include mixins.breakpoint-up('sm') {
 		border-inline-start: var(--theme--border-width) solid var(--theme--form--field--input--border-color);
 	}
 }

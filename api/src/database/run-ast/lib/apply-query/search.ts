@@ -8,6 +8,7 @@ import { isValidUuid } from '../../../../utils/is-valid-uuid.js';
 import { parseNumericString } from '../../../../utils/parse-numeric-string.js';
 import { getHelpers } from '../../../helpers/index.js';
 import { applyFilter } from './filter/index.js';
+import { applyRelationalSearch, isRelationalField } from './search-relational.js';
 
 export function applySearch(
 	knex: Knex,
@@ -45,6 +46,24 @@ export function applySearch(
 
 			if (fieldType !== null) {
 				needsFallbackCondition = false;
+			} else if (isRelationalField(field)) {
+				// Relational field — delegate to relational search (EXISTS subquery)
+				applyRelationalSearch(
+					knex,
+					schema,
+					queryBuilder,
+					searchQuery,
+					collection,
+					name,
+					field,
+					permissions,
+					1, // Start at depth 1
+					new Set([collection]), // Seed visited with current collection
+				);
+
+				// Don't set needsFallbackCondition — relational search may or may not add conditions
+				// depending on depth limits and field availability
+				return;
 			} else {
 				return;
 			}

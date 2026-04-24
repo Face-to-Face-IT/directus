@@ -2,30 +2,30 @@ import { useCollection } from '@directus/composables';
 import { isSystemCollection } from '@directus/system-data';
 import { Alterations, Field, Item, PrimaryKey, Query, Relation } from '@directus/types';
 import { getEndpoint, isObject } from '@directus/utils';
-import { AxiosResponse } from 'axios';
 import { jsonToGraphQLQuery } from 'json-to-graphql-query';
 import { cloneDeep, mergeWith } from 'lodash';
 import { computed, ComputedRef, isRef, MaybeRef, ref, Ref, unref, watch } from 'vue';
 import { UsablePermissions, usePermissions } from '../use-permissions';
 import { getGraphqlQueryFields } from './lib/get-graphql-query-fields';
 import { transformM2AAliases } from './lib/transform-m2a-aliases';
-import api from '@/api';
 import { useNestedValidation } from '@/composables/use-nested-validation';
-import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { VALIDATION_TYPES } from '@/constants';
 import { i18n } from '@/lang';
+import sdk, { requestEndpoint } from '@/sdk';
 import { useFieldsStore } from '@/stores/fields';
 import { useRelationsStore } from '@/stores/relations';
 import { APIError } from '@/types/error';
-import { applyConditions } from '@/utils/apply-conditions';
+import { clearHiddenFieldsByCondition } from '@/utils/clear-hidden-fields-by-condition';
 import { getDefaultValuesFromFields } from '@/utils/get-default-values-from-fields';
-import { getFieldsInGroup } from '@/utils/get-fields-in-group';
 import { mergeItemData } from '@/utils/merge-item-data';
 import { notify } from '@/utils/notify';
 import { pushGroupOptionsDown } from '@/utils/push-group-options-down';
 import { translate } from '@/utils/translate-object-values';
 import { unexpectedError } from '@/utils/unexpected-error';
 import { validateItem } from '@/utils/validate-item';
+
+/** Max URL length before switching to SEARCH method to avoid 414/431 errors */
+const MAX_QUERY_URL_LENGTH = 8192;
 
 type UsableItem<T extends Item> = {
 	edits: Ref<Item>;
@@ -36,7 +36,7 @@ type UsableItem<T extends Item> = {
 	loading: ComputedRef<boolean>;
 	saving: Ref<boolean>;
 	refresh: () => void;
-	save: () => Promise<T>;
+	save: () => Promise<T | undefined>;
 	isNew: ComputedRef<boolean>;
 	remove: () => Promise<void>;
 	deleting: Ref<boolean>;
@@ -76,7 +76,8 @@ export function useItem<T extends Item>(
 		return item.value?.[collectionInfo.value.meta.archive_field] === collectionInfo.value.meta.archive_value;
 	});
 
-	const permissions = usePermissions(collection, primaryKey, isNew);
+	const isVersion = computed(() => !!unref(query).version);
+	const permissions = usePermissions(collection, primaryKey, isNew, isVersion);
 	const fieldsWithPermissions = permissions.itemPermissions.fields;
 
 	const loading = computed(() => loadingItem.value || permissions.itemPermissions.loading.value);
@@ -122,71 +123,15 @@ export function useItem<T extends Item>(
 		loadingItem.value = true;
 		error.value = null;
 
-		const rawQuery: Record<string, unknown> = unref(query);
-
-		if ('fields' in rawQuery && Array.isArray(rawQuery.fields)) {
-			rawQuery.fields = rawQuery.fields.join(',');
-		}
-
 		try {
-			const response = await api.get(itemEndpoint.value, { params: rawQuery });
-			setItemValueToResponse(response);
+			const item = await sdk.request<T>(requestEndpoint(itemEndpoint.value, { params: unref(query) }));
+
+			setItemValueToResponse(item);
 		} catch (err) {
 			error.value = err;
 		} finally {
 			loadingItem.value = false;
 		}
-	}
-
-	function shouldClearField(field: Field, currentValues: Record<string, any>): boolean {
-		if (!field.meta?.conditions) return false;
-
-		// Read parent form values from the global context stack so
-		// $form-based conditions produce the same hidden/clear result here as
-		// in v-form.vue. Keeps the "clear hidden values on save" behaviour in
-		// sync with the visibility shown to the user inside a nested drawer.
-		const parentFormValues = useParentFormContext().value;
-		const fieldWithConditions = applyConditions(currentValues, field, null, parentFormValues);
-		return !!fieldWithConditions.meta?.hidden && !!fieldWithConditions.meta?.clear_hidden_value_on_save;
-	}
-
-	function clearHiddenFieldsByCondition(edits: Item, fields: Field[], defaultValues: any, item: any): Item {
-		const currentValues = mergeItemData(defaultValues, item, edits);
-
-		const fieldsToClearMap: Map<string, any> = new Map();
-
-		function addFieldToClear(field: Field) {
-			const defaultValue = field.schema?.default_value;
-			fieldsToClearMap.set(field.field, defaultValue !== undefined ? defaultValue : null);
-		}
-
-		for (const field of fields) {
-			if (shouldClearField(field, currentValues)) {
-				// If this is a group field that should be cleared, clear all fields within the group
-				if (field.meta?.special?.includes('group')) {
-					const fieldsInGroup = getFieldsInGroup(field.field, fields);
-
-					for (const groupField of fieldsInGroup) {
-						addFieldToClear(groupField);
-					}
-				} else {
-					// For non-group fields, add the field itself to be cleared
-					addFieldToClear(field);
-				}
-			}
-		}
-
-		if (fieldsToClearMap.size === 0) {
-			return edits;
-		}
-
-		const editsWithClearedValues = cloneDeep(edits);
-
-		for (const [field, defaultValue] of fieldsToClearMap) {
-			editsWithClearedValues[field] = defaultValue;
-		}
-
-		return editsWithClearedValues;
 	}
 
 	async function save() {
@@ -212,13 +157,23 @@ export function useItem<T extends Item>(
 			let response;
 
 			if (isNew.value) {
-				response = await api.post(getEndpoint(collection.value), editsWithClearedValues);
+				response = await sdk.request<T>(
+					requestEndpoint(getEndpoint(collection.value), {
+						method: 'POST',
+						body: editsWithClearedValues,
+					}),
+				);
 
 				notify({
 					title: i18n.global.t('item_create_success', 1),
 				});
 			} else {
-				response = await api.patch(itemEndpoint.value, editsWithClearedValues);
+				response = await sdk.request<T>(
+					requestEndpoint(itemEndpoint.value, {
+						method: 'PATCH',
+						body: editsWithClearedValues,
+					}),
+				);
 
 				notify({
 					title: i18n.global.t('item_update_success', 1),
@@ -227,7 +182,7 @@ export function useItem<T extends Item>(
 
 			setItemValueToResponse(response);
 			edits.value = {};
-			return response.data.data;
+			return response;
 		} catch (error) {
 			saveErrorHandler(error);
 		} finally {
@@ -260,7 +215,12 @@ export function useItem<T extends Item>(
 		let response;
 
 		try {
-			response = await api.post(graphqlEndpoint, { query });
+			response = await sdk.request<Item>(
+				requestEndpoint(graphqlEndpoint, {
+					method: 'POST',
+					body: { query },
+				}),
+			);
 		} catch (error) {
 			saving.value = false;
 			unexpectedError(error);
@@ -268,7 +228,7 @@ export function useItem<T extends Item>(
 		}
 
 		// Transform aliased M2A fields back to their original names
-		const itemData = transformM2AAliases(response.data.data.item, m2aAliasMap);
+		const itemData = transformM2AAliases(response.item, m2aAliasMap);
 
 		const newItem: Item = {
 			...(itemData || {}),
@@ -364,7 +324,12 @@ export function useItem<T extends Item>(
 		}
 
 		try {
-			const response = await api.post(getEndpoint(collection.value), newItem);
+			const response = await sdk.request<Item>(
+				requestEndpoint(getEndpoint(collection.value), {
+					method: 'POST',
+					body: newItem,
+				}),
+			);
 
 			notify({
 				title: i18n.global.t('item_create_success', 1),
@@ -373,7 +338,7 @@ export function useItem<T extends Item>(
 			// Reset edits to the current item
 			edits.value = {};
 
-			return primaryKeyField.value ? response.data.data[primaryKeyField.value.field] : null;
+			return primaryKeyField.value ? response[primaryKeyField.value.field] : null;
 		} catch (error) {
 			saveErrorHandler(error);
 		} finally {
@@ -404,14 +369,21 @@ export function useItem<T extends Item>(
 
 			if (fieldsToFetch.size > 0) fieldsToFetch.add(relatedPrimaryKeyField.field);
 
-			const response = await api.get(getEndpoint(relation.collection), {
-				params: {
-					fields: Array.from(fieldsToFetch),
-					[`filter[${relation.field}][_eq]`]: primaryKey.value,
-				},
-			});
+			const endpoint = getEndpoint(relation.collection);
+			const requestFields = Array.from(fieldsToFetch);
+			const filter = { [relation.field]: { _eq: primaryKey.value } };
+			const query = { fields: requestFields, filter };
 
-			return response.data.data;
+			const queryString = new URLSearchParams({
+				fields: requestFields.join(','),
+				filter: JSON.stringify(filter),
+			}).toString();
+
+			const useSearch = queryString.length + endpoint.length > MAX_QUERY_URL_LENGTH;
+
+			const options = useSearch ? { method: 'SEARCH' as const, body: { query } } : { params: query };
+
+			return await sdk.request<Item[]>(requestEndpoint(endpoint, options));
 		}
 
 		function clearPrimaryKey(primaryKeyField: Field | null, item: Item) {
@@ -445,16 +417,14 @@ export function useItem<T extends Item>(
 	}
 
 	function saveErrorHandler(error: any) {
-		if (error?.response?.data?.errors) {
-			validationErrors.value = error.response.data.errors
+		if (error?.errors) {
+			validationErrors.value = error.errors
 				.filter((err: APIError) => VALIDATION_TYPES.includes(err?.extensions?.code))
 				.map((err: APIError) => {
 					return err.extensions;
 				});
 
-			const otherErrors = error.response.data.errors.filter(
-				(err: APIError) => !VALIDATION_TYPES.includes(err?.extensions?.code),
-			);
+			const otherErrors = error.errors.filter((err: APIError) => !VALIDATION_TYPES.includes(err?.extensions?.code));
 
 			if (otherErrors.length > 0) {
 				otherErrors.forEach(unexpectedError);
@@ -487,9 +457,14 @@ export function useItem<T extends Item>(
 			if (value === 'true') value = true;
 			if (value === 'false') value = false;
 
-			await api.patch(itemEndpoint.value, {
-				[field]: value,
-			});
+			await sdk.request(
+				requestEndpoint(itemEndpoint.value, {
+					method: 'PATCH',
+					body: {
+						[field]: value,
+					},
+				}),
+			);
 
 			item.value = {
 				...(item.value as T),
@@ -512,7 +487,7 @@ export function useItem<T extends Item>(
 		deleting.value = true;
 
 		try {
-			await api.delete(itemEndpoint.value);
+			await sdk.request(requestEndpoint(itemEndpoint.value, { method: 'DELETE' }));
 
 			item.value = null;
 
@@ -549,14 +524,14 @@ export function useItem<T extends Item>(
 		}
 	}
 
-	function setItemValueToResponse(response: AxiosResponse) {
+	function setItemValueToResponse(response: T) {
 		if (
 			(isSystemCollection(collection.value) && collection.value !== 'directus_collections') ||
-			(collection.value === 'directus_collections' && isSystemCollection(response.data.data.collection ?? ''))
+			(collection.value === 'directus_collections' && isSystemCollection(response.collection ?? ''))
 		) {
-			response.data.data = translate(response.data.data);
+			response = translate(response);
 		}
 
-		item.value = response.data.data;
+		item.value = response;
 	}
 }

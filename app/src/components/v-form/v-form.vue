@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { useParentFormContext } from '@/composables/use-parent-form-context';
 import { useElementSize } from '@directus/composables';
 import { ContentVersion, Field, ValidationError } from '@directus/types';
 import { assign, cloneDeep, isEmpty, isEqual, isNil, omit } from 'lodash';
@@ -10,7 +9,7 @@ import type { MenuOptions } from './components/form-field-menu.vue';
 import FormField from './components/form-field.vue';
 import ValidationErrors from './components/validation-errors.vue';
 import { useAiTools } from './composables/use-ai-tools';
-import { type ComparisonContext, type FieldValues, type FormField as TFormField } from './types';
+import type { ComparisonContext, FieldValues, FormField as TFormField } from './types';
 import { getFormFields } from './utils/get-form-fields';
 import { updateFieldWidths } from './utils/update-field-widths';
 import { updateSystemDivider } from './utils/update-system-divider';
@@ -148,11 +147,6 @@ watch(
 
 provide('values', values);
 
-// Get parent form values from the global context stack
-// This allows conditions to reference parent form values via $form variable
-// Works across teleport boundaries (unlike provide/inject)
-const parentFormValues = useParentFormContext();
-
 function useForm() {
 	const fieldsStore = useFieldsStore();
 	const fields = ref<Field[]>(getFields());
@@ -176,7 +170,7 @@ function useForm() {
 		const valuesWithDefaults = Object.assign({}, defaultValues.value, values.value);
 
 		let fields = formFields.value.map((field) =>
-			applyConditions(valuesWithDefaults, setPrimaryKeyReadonly(field), props.version, parentFormValues.value),
+			applyConditions(valuesWithDefaults, setPrimaryKeyReadonly(field), props.version),
 		);
 
 		fields = pushGroupOptionsDown(fields);
@@ -534,7 +528,7 @@ function getComparisonIndicatorClasses(field: TFormField, isGroup = false) {
 
 .v-divider {
 	margin-block-end: 50px;
-	grid-column: 1 / 3;
+	grid-column: start / fill;
 }
 
 .indicator-active {
